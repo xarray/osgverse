@@ -1,11 +1,13 @@
 #include <osg/CullFace>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
+#include <osg/CoordinateSystemNode>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgUtil/SmoothingVisitor>
+#include <algorithm>
 
 #include <modeling/Math.h>
 #include <pipeline/Utilities.h>
@@ -131,6 +133,15 @@ double TileCallback::mapAltitude(const osg::Vec4& color, double minH, double max
 
 osg::Vec3d TileCallback::adjustLatitudeLongitudeAltitude(const osg::Vec3d& extent, bool useSphericalMercator) const
 {
+    if (_polarStereo != 0)
+    {   // Extent is in polar-stereographic metres; shrink points beyond the polar circle
+        // (the seam shared with web-mercator tiles) onto the circle itself
+        double x = extent[0], y = extent[1], radius = getPolarStereoRadius(), rho = std::hypot(x, y);
+        if (radius > 0.0 && rho > radius)
+            { x *= radius / rho; y *= radius / rho; }
+        return Coordinate::convertPolarStereoToLLA(osg::Vec3d(x, y, extent[2]), _polarStereo > 0);
+    }
+
     osg::Vec3d lla(osg::inDegrees(extent[1]), osg::inDegrees(extent[0]), extent[2]);
     if (useSphericalMercator)
     {
@@ -291,7 +302,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
     }
     geom->addPrimitiveSet(de.get());
     if (!_flatten && _skirtRatio > 0.0f)
-        updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), true);
+        updateSkirtData(geom, computeSkirtReferenceSize(tileMin, tileMax), true);
     return geom;
 }
 
@@ -349,7 +360,7 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
             }
 
         if (_skirtRatio > 0.0f)
-            updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), false);
+            updateSkirtData(geom, computeSkirtReferenceSize(tileMin, tileMax), false);
     }
     else
     {
@@ -622,9 +633,35 @@ void TileCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
     traverse(node, nv);
 }
 
+double TileCallback::getPolarStereoRadius() const
+{
+    if (_polarStereo == 0) return 0.0;
+    return std::min(std::min(std::fabs(_extentMin[0]), std::fabs(_extentMax[0])),
+                    std::min(std::fabs(_extentMin[1]), std::fabs(_extentMax[1])));
+}
+
+double TileCallback::getPolarRadiusAt(double latitudeDegrees)
+{
+    osg::Vec3d lla(osg::inDegrees(latitudeDegrees), 0.0, 0.0);
+    osg::Vec3d coord = Coordinate::convertLLAtoPolarStereo(lla, latitudeDegrees >= 0.0);
+    return std::hypot(coord[0], coord[1]);
+}
+
+double TileCallback::computeSkirtReferenceSize(const osg::Vec3d& tileMin, const osg::Vec3d& tileMax) const
+{
+    double tileSize = tileMax.y() - tileMin.y();
+    return (_polarStereo != 0) ? (tileSize / osg::WGS_84_RADIUS_EQUATOR) : osg::inDegrees(tileSize);
+}
+
 osg::Vec3d TileCallback::convertToECEF(const osg::Vec3d& lla) const
 {
-    // TODO: consider polar-stereo
+    if (_polarStereo != 0 || _polarBoundary)
+    {   // convertLLAtoECEF() snaps |latitude| > 85.05 to the poles, which would collapse the
+        // polar cap into a single point, or blow the polar edge of the pyramid up into a cone
+        osg::EllipsoidModel ellipsoid; osg::Vec3d xyz;
+        ellipsoid.convertLatLongHeightToXYZ(lla[0], lla[1], lla[2], xyz[0], xyz[1], xyz[2]);
+        return xyz;
+    }
     return Coordinate::convertLLAtoECEF(lla);
 }
 
@@ -713,7 +750,7 @@ void TileManager::updateTileGeometry(TileCallback& tileCB, osg::Geometry* geom)
                 if (ca) (*ca)[vi] = osg::Vec4(v0 * worldToLocal, 0.0f);
             }
         if (!tileCB.getFlatten() && tileCB.getSkirtRatio() > 0.0f)
-            tileCB.updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), false);
+            tileCB.updateSkirtData(geom, tileCB.computeSkirtReferenceSize(tileMin, tileMax), false);
         va->dirty(); if (ca) ca->dirty(); geom->dirtyBound();
     }
 }

@@ -10,6 +10,26 @@
 #include <readerwriter/Utilities.h>
 #include <readerwriter/TileCallback.h>
 
+// The Web / WebP plugins are used to resolve remote tile paths, and should be requested
+// only after all plugins have been registered. Requesting them in the constructor is
+// unsafe: the constructor may be called during the static initialization stage, when the
+// target plugins are not ready yet, and the failed dynamic library loading will break
+// the whole program (e.g. an AddressSanitizer abort under WebAssembly)
+namespace
+{
+    struct WebPluginPreloader
+    {
+        WebPluginPreloader()
+        {
+            osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
+            osgDB::Registry::instance()->getReaderWriterForExtension("verse_webp");
+        }
+    };
+}
+
+// Latitude where the web-mercator square ends; polar-stereographic tiles take over beyond it
+static const double POLAR_BOUNDARY_LATITUDE = 85.05112877980659;
+
 // WebMercatorTiles: (0-0-0) Lv1 = 00,01,10,11, ...; (0-0-x) Lv0 = 00,01,10,11, ...
 // WGS84Tiles: (0-0-0) Lv1 = 00,10, Lv2 = 00,01,10,11,20,21,30,31, ...; (0-0-x) Lv0 = 00,10, ...
 
@@ -51,23 +71,6 @@
            //int newY = pow(2, z + 1) - y, newZ = z + 1;  // if "OriginBottomLeft=0"
            return osgVerse::TileCallback::createPath(prefix, x, newY, newZ); }
 */
-// The Web / WebP plugins are used to resolve remote tile paths, and should be requested
-// only after all plugins have been registered. Requesting them in the constructor is
-// unsafe: the constructor may be called during the static initialization stage, when the
-// target plugins are not ready yet, and the failed dynamic library loading will break
-// the whole program (e.g. an AddressSanitizer abort under WebAssembly)
-namespace
-{
-struct WebPluginPreloader
-{
-    WebPluginPreloader()
-    {
-        osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
-        osgDB::Registry::instance()->getReaderWriterForExtension("verse_webp");
-    }
-};
-}
-
 class ReaderWriterTMS : public osgDB::ReaderWriter
 {
 public:
@@ -82,6 +85,11 @@ public:
         supportsOption("UrlPathFunction", "The custom function from setPluginData() to compute tile URL");
         supportsOption("UseEarth3D", "Display TMS tiles as a real earth: default=0");
         supportsOption("UseWebMercator", "Use Web Mercator (Level-0 has 4 tiles): default=0");
+        supportsOption("PolarStereo", "Tile pyramid in polar stereographic projection covering the"
+                      " region beyond the polar circle: 0=off (default), 1=north, -1=south");
+        supportsOption("PolarBoundary", "Keep the polar edge of an equirectangular / web-mercator"
+                      " pyramid flat instead of snapping it to the pole, so that polar-stereographic"
+                      " tiles can continue seamlessly: default=0");
         supportsOption("OriginBottomLeft", "Use bottom-left as every tile's origin point: default=0");
         supportsOption("NoGlobeAttribute", "Donot use extra vertex-attribute for ocean-related data: default=0");
         supportsOption("FlatExtentMinX", "Flat earth extent X0: default -180");
@@ -131,13 +139,39 @@ public:
             osg::Vec3d extentMin = osg::Vec3d(-180.0, -90.0, 0.0), extentMax = osg::Vec3d(180.0, 90.0, 0.0);
             std::string strX = options->getPluginStringData("FlatExtentMinX"),
                         strY = options->getPluginStringData("FlatExtentMinY");
-            if (!strX.empty()) extentMin[0] = atof(strX.c_str()); if (!strY.empty()) extentMin[1] = atof(strY.c_str());
+            bool customExtent = false;
+            if (!strX.empty()) { extentMin[0] = atof(strX.c_str()); customExtent = true; }
+            if (!strY.empty()) { extentMin[1] = atof(strY.c_str()); customExtent = true; }
             strX = options->getPluginStringData("FlatExtentMaxX"); strY = options->getPluginStringData("FlatExtentMaxY");
-            if (!strX.empty()) extentMax[0] = atof(strX.c_str()); if (!strY.empty()) extentMax[1] = atof(strY.c_str());
+            if (!strX.empty()) { extentMax[0] = atof(strX.c_str()); customExtent = true; }
+            if (!strY.empty()) { extentMax[1] = atof(strY.c_str()); customExtent = true; }
+
+            // Polar-stereographic tiles: the extent becomes a square in projected metres centred at
+            // the pole, and its inscribed circle is the seam shared with web-mercator tiles
+            std::string polarStr = options->getPluginStringData("PolarStereo"); int polar = 0;
+            if (!polarStr.empty())
+            {
+                std::transform(polarStr.begin(), polarStr.end(), polarStr.begin(), tolower);
+                if (polarStr == "north" || polarStr == "true") polar = 1;
+                else if (polarStr == "south") polar = -1;
+                else polar = atoi(polarStr.c_str());
+            }
+            if (polar != 0 && !customExtent)
+            {
+                double r = osgVerse::TileCallback::getPolarRadiusAt(POLAR_BOUNDARY_LATITUDE);
+                extentMin = osg::Vec3d(-r, -r, 0.0); extentMax = osg::Vec3d(r, r, 0.0);
+            }
+
+            std::string boundaryStr = options->getPluginStringData("PolarBoundary");
+            if (!boundaryStr.empty()) std::transform(
+                boundaryStr.begin(), boundaryStr.end(), boundaryStr.begin(), tolower);
+            bool polarBoundary = (boundaryStr == "true" || atoi(boundaryStr.c_str()) > 0);
 
             std::string use4T = options->getPluginStringData("UseWebMercator");
             if (!use4T.empty()) std::transform(use4T.begin(), use4T.end(), use4T.begin(), tolower);
-            if (use4T == "false" || atoi(use4T.c_str()) <= 0)
+            if (polar != 0)
+            { /* polar-stereographic tiles always split the square into 2 columns and 2 rows */ }
+            else if (use4T == "false" || atoi(use4T.c_str()) <= 0)
             {
                 extentMax[0] = (extentMax[0] + extentMin[0]) * 0.5;
                 if (z == 0) countY = 1; useWM = false;
@@ -146,6 +180,7 @@ public:
             std::string useEarth = options->getPluginStringData("UseEarth3D");
             if (!useEarth.empty()) std::transform(useEarth.begin(), useEarth.end(), useEarth.begin(), tolower);
             bool flatten = (useEarth == "false" || atoi(useEarth.c_str()) <= 0);
+            if (polar != 0) flatten = false;  // polar-stereographic tiles only make sense on a 3D globe
 
             osg::ref_ptr<osg::Group> group = new osg::Group;
             group->setName("TMSGroup:" + fileName);
@@ -154,7 +189,7 @@ public:
                 {
                     osg::ref_ptr<osg::Node> node = createTile(
                         elevAddr, orthoAddr, maskAddr, x + xx, y + yy, z,
-                        extentMin, extentMax, options, useWM, flatten);
+                        extentMin, extentMax, options, useWM, flatten, polar, polarBoundary);
                     if (!node) continue;
 
                     osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
@@ -178,7 +213,7 @@ protected:
     osg::Node* createTile(const std::string& elevPath, const std::string& orthPath,
                           const std::string& maskPath, int x, int y, int z,
                           const osg::Vec3d& extentMin, const osg::Vec3d& extentMax,
-                          const Options* opt, bool useWM, bool flatten) const
+                          const Options* opt, bool useWM, bool flatten, int polar, bool polarBoundary) const
     {
         CreatePathFunc pathFunc = (CreatePathFunc)opt->getPluginData("UrlPathFunction");
         std::string name = "TMS_" + std::to_string(x) + "_" + std::to_string(y) + "_" + std::to_string(z),
@@ -201,6 +236,7 @@ protected:
         tileCB->setTotalExtent(extentMin, extentMax); tileCB->setTileNumber(x, y, z);
         tileCB->setBottomLeft(atoi(botLeft.c_str()) > 0);
         tileCB->setUseWebMercator(useWM); tileCB->setFlatten(flatten);
+        tileCB->setPolarStereo(polar); tileCB->setPolarBoundary(polarBoundary);
         tileCB->setCreatePathFunction(pathFunc); tileCB->setName(name + "_Callback");
         if (opt)
         {
@@ -213,6 +249,19 @@ protected:
 
         osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight = 0.0;
         tileCB->computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
+
+        // Tiles completely outside the polar circle contain nothing at all, so their whole sub-tree
+        // can be skipped without leaving a hole, which also avoids useless imagery requests
+        if (polar != 0)
+        {
+            double r = tileCB->getPolarStereoRadius();
+            const double cx[4] = { tileMin.x(), tileMax.x(), tileMin.x(), tileMax.x() };
+            const double cy[4] = { tileMin.y(), tileMin.y(), tileMax.y(), tileMax.y() };
+            bool outside = true;
+            for (int i = 0; i < 4; ++i)
+                if (std::hypot(cx[i], cy[i]) < r) { outside = false; break; }
+            if (outside) return NULL;
+        }
 
         osg::Matrix localMatrix; osg::ref_ptr<osg::Texture> elevImage;
         osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler;

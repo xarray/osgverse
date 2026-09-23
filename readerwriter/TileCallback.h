@@ -30,7 +30,8 @@ namespace osgVerse
     public:
         TileCallback(bool g = true)
         :   _x(-1), _y(-1), _z(-1), _skirtRatio(0.02f), _elevationScale(1.0f), _withGlobeAttr(g), _flatten(true),
-            _bottomLeft(false), _useWebMercator(false), _layersDone(false) { _createPathFunc = NULL; }
+            _bottomLeft(false), _useWebMercator(false), _layersDone(false),
+            _polarStereo(0), _polarBoundary(false) { _createPathFunc = NULL; }
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         virtual osg::Vec3d convertToECEF(const osg::Vec3d& lla) const;
@@ -103,6 +104,30 @@ namespace osgVerse
         void setUseWebMercator(bool b) { _useWebMercator = b; }
         bool getUseWebMercator() const { return _useWebMercator; }
 
+        /** Set polar-stereographic tile mode: 0 = none (default), 1 = north pole, -1 = south pole.
+            In this mode the total extent is a square in projected metres centred at the pole
+            instead of longitude/latitude degrees, and every vertex is unprojected from the
+            polar-stereographic plane back to geodetic coordinates */
+        void setPolarStereo(int mode) { _polarStereo = (mode > 0) ? 1 : ((mode < 0) ? -1 : 0); }
+        int getPolarStereo() const { return _polarStereo; }
+
+        /** Keep the polar edge of an equirectangular / web-mercator pyramid flat instead of
+            snapping it to the pole, so that polar-stereographic tiles can continue seamlessly */
+        void setPolarBoundary(bool b) { _polarBoundary = b; }
+        bool getPolarBoundary() const { return _polarBoundary; }
+
+        /** Get the polar-circle radius in projected metres, i.e. the inscribed radius of the polar
+            extent. Vertices projected outside of it are shrinked onto the circle, which becomes the
+            seam shared with the equirectangular / web-mercator tiles */
+        double getPolarStereoRadius() const;
+
+        /** Compute the polar-stereographic radius (in metres) at a given geodetic latitude, used to
+            build a default polar extent whose boundary matches that of web-mercator tiles */
+        static double getPolarRadiusAt(double latitudeDegrees);
+
+        /** Compute the reference size (in radians) used for creating tile skirts */
+        double computeSkirtReferenceSize(const osg::Vec3d& tileMin, const osg::Vec3d& tileMax) const;
+
         /** Set if all layers are loaded or not */
         void setLayersDone(bool b) { _layersDone = b; }
         bool getLayersDone() const { return _layersDone; }
@@ -127,6 +152,7 @@ namespace osgVerse
         CreatePathFunc _createPathFunc;
         int _x, _y, _z; float _skirtRatio, _elevationScale;
         bool _withGlobeAttr, _flatten, _bottomLeft, _useWebMercator, _layersDone;
+        int _polarStereo; bool _polarBoundary;
     };
 
     class OSGVERSE_RW_EXPORT TileManager : public osg::Referenced

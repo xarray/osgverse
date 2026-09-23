@@ -196,6 +196,11 @@ int main(int argc, char** argv)
 
     bool useOcean = arguments.read("--ocean"), useSky = arguments.read("--sky"), withAxes = arguments.read("--with-axes");
     bool bLeft = arguments.read("--image-bottomleft"), wgs84 = arguments.read("--web-wgs84"), use2D = arguments.read("--map2d");
+    bool usePolar = arguments.read("--polar");
+    bool usePolarNorth = usePolar || arguments.read("--polar-north");
+    bool usePolarSouth = usePolar || arguments.read("--polar-south");
+    bool usePolarCaps = (usePolarNorth || usePolarSouth) && !use2D;
+    if (use2D && usePolar) OSG_NOTICE << "Polar caps are incompatible with 2D maps and will be ignored\n";
     std::string startFile, use2Dor3D = use2D ? "UseEarth3D=0" : "UseEarth3D=1";
     std::string useBottomLeftImage = bLeft ? "OriginBottomLeft=1" : "OriginBottomLeft=0";
     std::string useWGS84Tile = wgs84 ? "UseWebMercator=0" : "UseWebMercator=1";
@@ -226,13 +231,37 @@ int main(int argc, char** argv)
     //   JiLin No.1: --ortho "https://api.jl1mall.com/getMap/{z}/{x}/{y}?mk%3d<your_code>&tk%3d<your_code2>"
     //               --options "FlipVertical=1" --image-bottomleft
     //   GEOVIS Earth: --ortho "https://tiles1.geovisearth.com/base/v1/img/{z}/{x}/{y}?token%3d<your_code>" --options "FlipVertical=1"
+    //   Polar caps: --polar (adds polar-stereographic tiles covering |latitude| > 85, so that the
+    //                      earth is complete at both poles instead of degenerating into triangles)
     std::string earthURLs = "Orthophoto=" + ortho + (!elev.empty() ? (" Elevation=" + elev + " ") : " ")
                           + useBottomLeftImage + " " + useWGS84Tile + " " + use2Dor3D;
     if (!headers.empty()) earthURLs += " RequestHeaders=" + headers;
     if (!options.empty()) earthURLs += " " + options;
-    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
+
+    // The equirectangular / web-mercator pyramid has to stop at the polar circle instead of
+    // snapping its polar edge to the pole, so that the polar caps below can continue it
+    std::string polarTag = usePolarCaps ? " PolarBoundary=1" : "";
+    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + polarTag);
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile(startFile, earthOptions.get());
 #endif
+
+    // Polar stereographic caps complete the globe beyond the polar circle, where web-mercator
+    // tiles would otherwise degenerate into triangles running out of the poles
+    osg::ref_ptr<osg::Group> polarCaps;
+    if (usePolarCaps)
+    {
+        polarCaps = new osg::Group; polarCaps->setName("PolarCaps");
+        const bool poles[2] = { usePolarNorth, usePolarSouth };
+        for (int i = 0; i < 2; ++i)
+        {
+            if (!poles[i]) continue;
+            std::string capURLs = earthURLs + " PolarStereo=" + std::string(i == 0 ? "1" : "-1");
+            osg::ref_ptr<osgDB::Options> capOptions = new osgDB::Options(capURLs);
+            osg::ref_ptr<osg::Node> cap = osgDB::readNodeFile("0-0-0.verse_tms", capOptions.get());
+            if (cap.valid()) polarCaps->addChild(cap.get());
+            else OSG_NOTICE << "[earth_test] Failed to create " << (i == 0 ? "north" : "south") << " polar cap\n";
+        }
+    }
 
     osg::ref_ptr<osg::Node> tiles = osgDB::readNodeFiles(arguments, new osgDB::Options("DisabledPBR=1"));
     if (useOcean || useSky)
@@ -242,7 +271,7 @@ int main(int argc, char** argv)
                     " Elevation=mbtiles://" + mainFolder + "/DEM_lv3.mbtiles/{z}-{x}-{y}.tif"
                     " OceanMask=mbtiles://" + mainFolder + "/Mask_lv3.mbtiles/{z}-{x}-{y}.tif"
                     " UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1 TileElevationScale=3 TileSkirtRatio=0.05";
-        earthOptions = new osgDB::Options(earthURLs + " " + options);
+        earthOptions = new osgDB::Options(earthURLs + " " + options + polarTag);
         earthOptions->setPluginData("UrlPathFunction", (void*)createMixedPath);
         earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
     }
@@ -281,6 +310,7 @@ int main(int argc, char** argv)
             earthCamera->setViewport(0, 0, w, h);
             if (tiles.valid()) earthCamera->addChild(tiles.get());
             earthCamera->addChild(earth.get());
+            if (polarCaps.valid()) earthCamera->addChild(polarCaps.get());
 
             osg::Texture* defTex0 = osgVerse::createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
             osg::Texture* defTex1 = osgVerse::createDefaultTexture(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
@@ -352,6 +382,7 @@ int main(int argc, char** argv)
     else
     {
         root->addChild(earth.get());
+        if (polarCaps.valid()) root->addChild(polarCaps.get());
         if (tiles.valid()) root->addChild(tiles.get());
     }
 
