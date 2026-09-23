@@ -42,7 +42,9 @@ allprojects {
 }
 
 ext {
-    ABI_FILTER = 'arm64-v8a'  // 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+    // ABI to build: Setup.sh / Setup.bat pass their AndroidAbi variable as -Pabi
+    // 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+    ABI_FILTER = project.findProperty('abi') ?: 'arm64-v8a'
     GLES_PROFILE = 'GLES3'    // 'GLES2', 'GLES3'
 }
 

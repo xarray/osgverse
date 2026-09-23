@@ -10,12 +10,20 @@ set BuildGles2=0
 
 :: Android build type (mode 5): Debug or Release, used for the Gradle task and build result paths
 set AndroidBuildType=Debug
-set AndroidAbi=arm64-v8a      # should match ABI_FILTER in android/build.gradle
+set AndroidAbi=arm64-v8a      rem -Pabi for Gradle (ABI_FILTER) and -DOHOS_ARCH for Harmony
+set Sdl2Version=release-2.24.0
 
 set QuietMode=0
 set SourceCodePatched=0
 set CurrentDir=%cd%
 set OpenSceneGraphRoot=%CurrentDir%\..\OpenSceneGraph
+
+:: PowerShell is used to keep the original timestamps of patched files, so that
+:: patching/unpatching never looks like a source change to CMake/Ninja. If it is
+:: not available the timestamps are left untouched, which is the old behaviour.
+set UsePowerShellForTime=0
+where powershell >nul 2>&1
+if !errorlevel!==0 set UsePowerShellForTime=1
 
 set OptionalDir=%1
 if "!OptionalDir!"=="DEFAULT" (set BuildMode=0& set QuietMode=1)
@@ -330,6 +338,7 @@ if not "!SkipOsgBuild!"=="1" (
         %SedEXE% -i.bak "s/ADD_DEFINITIONS(-DHAVE_PTHREAD_CANCEL)/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_CANCEL)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
         %SedEXE% -i.bak "s/ADD_DEFINITIONS(-DHAVE_PTHREAD_SETCANCELSTATE)/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_SETCANCELSTATE)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
     )
+    call :KeepOsgFileTimes
 )
 
 :: Compile OpenSceneGraph
@@ -520,8 +529,12 @@ if not %errorlevel%==0 (
 )
 
 if not exist %Sdl2Root%\ (
-    echo SDL2 source folder not found. Please download and unzip it in ..\SDL2.
-    goto exit
+    echo SDL2 source folder not found. Cloning %Sdl2Version% in ..\SDL2...
+    git clone --depth 1 --branch %Sdl2Version% https://github.com/libsdl-org/SDL.git %Sdl2Root%\
+    if not exist %Sdl2Root%\ (
+        echo SDL2 source folder not found. Please download and unzip it in ..\SDL2.
+        goto exit
+    )
 )
 
 :: Migrate the deprecated ndk.dir entry to ndk.path (read by gradle.ext.ndkPath)
@@ -581,7 +594,9 @@ if "!QuietMode!"=="0" (
 )
 
 cd %CurrentDir%\android
-gradle assemble%AndroidBuildType%
+gradle assemble%AndroidBuildType% -Pabi=%AndroidAbi%
+:: adb install -r android\app\build\outputs\apk\debug\app-debug.apk
+:: adb logcat -s osgVerse SDL
 
 :exit
 if not %errorlevel%==0 (
@@ -608,7 +623,39 @@ if "!SourceCodePatched!"=="1" (
         %SedEXE% -i.bak "s/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_CANCEL)/ADD_DEFINITIONS(-DHAVE_PTHREAD_CANCEL)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
         %SedEXE% -i.bak "s/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_SETCANCELSTATE)/ADD_DEFINITIONS(-DHAVE_PTHREAD_SETCANCELSTATE)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
     )
+    call :KeepOsgFileTimes
 )
 echo Quited.
 endlocal
 pause
+goto :eof
+
+:: Keep the original timestamp of a file after it has been rewritten by sed, using
+:: the ".bak" copy created by sed. A file that is not patched (or kept) is ignored.
+:KeepFileTime
+set KeepTimeFile=%~1
+set KeepTimeBak=%~1.bak
+if not exist "!KeepTimeFile!" exit /b 0
+if not exist "!KeepTimeBak!" exit /b 0
+if not "!UsePowerShellForTime!"=="1" exit /b 0
+powershell -NoProfile -Command "(Get-Item -LiteralPath '!KeepTimeFile!').LastWriteTime=(Get-Item -LiteralPath '!KeepTimeBak!').LastWriteTime" >nul 2>&1
+exit /b 0
+
+:: Get back the timestamps of every OpenSceneGraph file that may have been patched
+:KeepOsgFileTimes
+if not "!UsePowerShellForTime!"=="1" exit /b 0
+call :KeepFileTime "%OpenSceneGraphRoot%\CMakeLists.txt"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osgPlugins\freetype\CMakeLists.txt"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osgPlugins\tiff\CMakeLists.txt"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osgPlugins\osga\OSGA_Archive.cpp"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osgViewer\CMakeLists.txt"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osg\Image.cpp"
+call :KeepFileTime "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"
+call :KeepFileTime "%OpenSceneGraphRoot%\include\osg\Texture"
+exit /b 0

@@ -730,6 +730,16 @@ IF(NOT USE_WASM_OPTIONS)
         ADD_DEFINITIONS(-DBL_BUILD_OPT_SSE3 -DBASISU_SUPPORT_SSE=1)
     ELSEIF("sse2" IN_LIST VERSE_SIMD_FEATURES)
         ADD_DEFINITIONS(-DBL_BUILD_OPT_SSE2)
+    ELSEIF(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
+        # VERSE_SIMD_FEATURES describes the host CPU, so it stays empty when cross
+        # compiling for Android. Blend2D then auto-detects SSE4.x from the compiler
+        # macros (the NDK guarantees SSE4.2 for x86_64) and needs BL_BUILD_OPT_SSE4_2
+        # to actually compile the matching SIMD sources, otherwise some of its code
+        # references functions that are never built
+        ADD_DEFINITIONS(-DBL_BUILD_OPT_SSE4_2 -DBOX3D_DISABLE_SIMD)
+    ELSEIF(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86")
+        # The NDK baseline of 32bit x86 covers SSE2 as well
+        ADD_DEFINITIONS(-DBL_BUILD_OPT_SSE2 -DBOX3D_DISABLE_SIMD)
     ELSE()
         ADD_DEFINITIONS(-DBL_BUILD_NO_SIMD -DBOX3D_DISABLE_SIMD)
     ENDIF()

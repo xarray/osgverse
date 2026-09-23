@@ -30,7 +30,7 @@
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
         android:hardwareAccelerated="true">
         <activity
-            android:name="org.libsdl.app.SDLActivity"
+            android:name="com.osgverse.demoapp.OsgVerseSDLActivity"
             android:alwaysRetainTaskState="true"
             android:launchMode="singleInstance"
             android:configChanges="keyboardHidden|orientation"

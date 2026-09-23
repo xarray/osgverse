@@ -16,8 +16,10 @@ GET_FILENAME_COMPONENT(OSGVERSE_BUILD_DIR ../../build/verse_android/${CMAKE_BUIL
 
 FIND_PACKAGE(OpenMP)
 IF(OPENMP_FOUND)
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    # Compile options only: keeping OpenMP in the linker flags would make the library
+    # depend on the shared libomp.so, which the NDK provides for building only (see
+    # the link step below, where the static runtime is used instead)
+    ADD_COMPILE_OPTIONS(${OpenMP_C_FLAGS} ${OpenMP_CXX_FLAGS})
 ENDIF()
 
 # Build main bridge library
@@ -39,6 +41,9 @@ TARGET_LINK_LIBRARIES(osgVerseAndroid log android EGL GLESv1_CM GLESv2 GLESv3 Op
                       debug osgVerseUId optimized osgVerseUI
                       debug osgVerseReaderWriterd optimized osgVerseReaderWriter
                       debug osgVerseWrappersd optimized osgVerseWrappers
+                      debug osgdb_glsld optimized osgdb_glsl
+                      debug osgdb_verse_gltfd optimized osgdb_verse_gltf
+                      debug osgdb_verse_imaged optimized osgdb_verse_image
                       debug OpenThreadsd optimized OpenThreads
                       debug osgd optimized osg
                       debug osgDBd optimized osgDB
@@ -48,5 +53,26 @@ TARGET_LINK_LIBRARIES(osgVerseAndroid log android EGL GLESv1_CM GLESv2 GLESv3 Op
                       debug osgTerraind optimized osgTerrain
                       debug osgViewerd optimized osgViewer)
 IF(OPENMP_FOUND)
-    TARGET_LINK_LIBRARIES(osgVerseAndroid omp)
+    # An Android application has to ship the OpenMP runtime itself, so the static one
+    # coming with clang is linked in directly instead of the "omp" shared library
+    EXECUTE_PROCESS(COMMAND ${CMAKE_CXX_COMPILER} -print-resource-dir
+                    OUTPUT_VARIABLE OpenMPResourceDir OUTPUT_STRIP_TRAILING_WHITESPACE)
+    
+    # The runtime library is stored under the architecture name of the NDK, which differs
+    # from the ABI name of the Android platform
+    IF(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+        SET(OpenMPArchName "aarch64")
+    ELSEIF(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
+        SET(OpenMPArchName "armv7a")
+    ELSEIF(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86")
+        SET(OpenMPArchName "i686")
+    ELSE()
+        SET(OpenMPArchName "${CMAKE_ANDROID_ARCH_ABI}")
+    ENDIF()
+    SET(OpenMPStaticLibrary "${OpenMPResourceDir}/lib/linux/${OpenMPArchName}/libomp.a")
+    IF(EXISTS "${OpenMPStaticLibrary}")
+        TARGET_LINK_LIBRARIES(osgVerseAndroid "${OpenMPStaticLibrary}")
+    ELSE()
+        TARGET_LINK_LIBRARIES(osgVerseAndroid omp)
+    ENDIF()
 ENDIF()

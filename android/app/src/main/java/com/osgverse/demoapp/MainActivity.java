@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.app.Activity;
 import android.view.View;
-import org.libsdl.app.SDLActivity;
 
 public class MainActivity extends Activity {
 
@@ -15,7 +14,7 @@ public class MainActivity extends Activity {
     }
 
     public void startSDLActivity(View view) {
-        Intent intent = new Intent(this, SDLActivity.class);
+        Intent intent = new Intent(this, OsgVerseSDLActivity.class);
         startActivity(intent);
     }
 

@@ -1,6 +1,19 @@
 apply plugin: 'com.android.application'
 def ABI_FILTER = rootProject.ext.ABI_FILTER
 
+// The runtime resources of the demo. They are taken from the assets folder which is shared with
+// the other platforms, but only the used part is staged here and packed into the APK
+def DemoAssetsDir = "$buildDir/demoAssets"
+def StageDemoAssetsTask = tasks.register('stageDemoAssets', Sync) {
+    from('../../assets') {
+        include 'shaders/**'
+        include 'models/Sponza/**'
+        include 'skyboxes/sunset.png'
+        include 'skyboxes/sunset.ibl.rseq'
+    }
+    into DemoAssetsDir
+}
+
 // Release signing is optional: set the following keys in local.properties (paths may be
 // absolute or relative to this module) or provide them as environment variables.
 // The keystore only has to be created once, for example:
@@ -71,6 +84,18 @@ android {
         }
     }
     sourceSets {
+        main {
+            // The Java classes of SDL (org.libsdl.app.*) are taken from the SDL2 source tree
+            // that also provides the headers and libSDL2.so used by the native build, so the
+            // Java and native parts of SDL can never get out of sync
+            java.srcDirs += '../../../SDL2/android-project/app/src/main/java'
+
+            // The runtime resources are shared with the other platforms. Only the part which
+            // this demo uses is packed into the APK (it is unpacked on the first start, see
+            // AssetExtractor.java), which is why the assets are staged by a separate task:
+            // the asset merging of AGP does not apply the include filter of a source set
+            assets.srcDirs += DemoAssetsDir
+        }
         debug {
             jniLibs.srcDirs += '../../build/sdl2_android/lib/Debug'
         }
@@ -87,6 +112,11 @@ android {
 
 preBuild.dependsOn ":sdl2:build", ":osgverse:build"
 //preBuild.dependsOn ":sdl2:build"
+
+// The assets have to be staged before they are merged into the APK
+tasks.matching { it.name.startsWith('merge') && it.name.endsWith('Assets') }.configureEach {
+    dependsOn StageDemoAssetsTask
+}
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.so'])

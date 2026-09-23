@@ -15,7 +15,8 @@ SkipOsgBuild=0
 GradleLocalPropFile=$CurrentDir/android/local.properties
 GradleSettingsFile=$CurrentDir/android/settings.gradle
 AndroidBuildType="Debug"    # Debug or Release: Gradle task and build result paths used by mode 5
-AndroidAbi="arm64-v8a"      # should match ABI_FILTER in android/build.gradle
+AndroidAbi="arm64-v8a"      # passed to Gradle as -Pabi (ABI_FILTER in android/build.gradle)
+Sdl2Version="release-2.24.0"  # tag cloned into ../SDL2 when it does not exist yet
 AndroidDebugPostfix=""      # OSG appends 'd' to library names in Debug builds
 if [ "$AndroidBuildType" = "Debug" ]; then
     AndroidDebugPostfix="d"
@@ -191,9 +192,17 @@ elif [ "$BuildMode" = '5' ]; then
     export PATH
     echo "Android toolchain will use JDK: $JAVA_HOME"
 
+    # Fetch SDL2 in the same way as OpenSceneGraph above when it is not there yet.
+    # The sources come with both the native library and the Java classes used by
+    # the Android application, which therefore always share one version
     if [ ! -d "../SDL2" ]; then
-        echo "SDL2 source folder not found. Please download and unzip it in ../SDL2."
-        exit 1
+        echo "SDL2 source folder not found. Cloning $Sdl2Version in ../SDL2..."
+        git clone --depth 1 --branch $Sdl2Version \
+            https://github.com/libsdl-org/SDL.git ../SDL2
+        if [ ! -d "../SDL2" ]; then
+            echo "SDL2 source folder not found. Please download and unzip it in ../SDL2."
+            exit 1
+        fi
     fi
 
     # Migrate the deprecated ndk.dir entry to ndk.path (read by gradle.ext.ndkPath)
@@ -346,31 +355,45 @@ else
     fi
 fi
 
+# Rewrite a source file in place while keeping its original timestamp, so that
+# patching and unpatching never look like a source change to CMake/Ninja.
+# Otherwise the modified timestamp would force a re-configure (and a recompile
+# of every touched file) on the next run, even though the content is unchanged.
+PatchFileSafely()
+{
+    PatchRule="$1"
+    PatchPath="$2"
+    if [ -f "$PatchPath" ]; then
+        sed -i.bak "$PatchRule" "$PatchPath"
+        if [ -f "$PatchPath.bak" ]; then
+            touch -r "$PatchPath.bak" "$PatchPath"
+        fi
+    fi
+}
+
 # Fix some OpenSceneGraph compile errors
 if [ "$SkipOsgBuild" = 0 ]; then
     echo "*** Automatically patching source code..."
     OpenSceneGraphRoot=$CurrentDir/../OpenSceneGraph
-    if [ -f "$OpenSceneGraphRoot/src/osgUtil/tristripper/include/detail/graph_array.h" ]; then
-        sed -i.bak 's/std::mem_fun_ref/std::mem_fn/g' "$OpenSceneGraphRoot/src/osgUtil/tristripper/include/detail/graph_array.h"
-    fi
-    sed -i.bak 's/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g' "$OpenSceneGraphRoot/src/osgDB/FileUtils.cpp"
-    sed -i.bak 's/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
-    sed -i.bak 's/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
-    sed -i.bak 's/ADD_PLUGIN_DIRECTORY(ffmpeg)/#ADD_PLUGIN_DIRECTORY(#ffmpeg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
-    sed -i.bak 's/TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE/TIFF_FOUND/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
-    sed -i.bak 's/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g' "$OpenSceneGraphRoot/CMakeLists.txt"
+    PatchFileSafely 's/std::mem_fun_ref/std::mem_fn/g' "$OpenSceneGraphRoot/src/osgUtil/tristripper/include/detail/graph_array.h"
+    PatchFileSafely 's/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g' "$OpenSceneGraphRoot/src/osgDB/FileUtils.cpp"
+    PatchFileSafely 's/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+    PatchFileSafely 's/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+    PatchFileSafely 's/ADD_PLUGIN_DIRECTORY(ffmpeg)/#ADD_PLUGIN_DIRECTORY(#ffmpeg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+    PatchFileSafely 's/TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE/TIFF_FOUND/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+    PatchFileSafely 's/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g' "$OpenSceneGraphRoot/CMakeLists.txt"
 
     # Fix OpenSceneGraph build warnings and errors
     if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
-        sed -i.bak 's#dlopen(#NULL;\/\/dlopen\/\/(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
+        PatchFileSafely 's#dlopen(#NULL;\/\/dlopen\/\/(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
     else
-        sed -i.bak 's#NULL;\/\/dlopen\/\/(#dlopen(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
+        PatchFileSafely 's#NULL;\/\/dlopen\/\/(#dlopen(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
     fi
-    sed -i.bak 's/#ifndef GL_EXT_texture_compression_s3tc/#if !defined(GL_EXT_texture_compression_s3tc) || !defined(GL_EXT_texture_compression_s3tc_srgb)/g' "$OpenSceneGraphRoot/include/osg/Texture"
-    sed -i.bak 's#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp"
-    sed -i.bak 's#case(GL_HALF_FLOAT):#case GL_HALF_FLOAT: case 0x8D61:#g' "$OpenSceneGraphRoot/src/osg/Image.cpp"
+    PatchFileSafely 's/#ifndef GL_EXT_texture_compression_s3tc/#if !defined(GL_EXT_texture_compression_s3tc) || !defined(GL_EXT_texture_compression_s3tc_srgb)/g' "$OpenSceneGraphRoot/include/osg/Texture"
+    PatchFileSafely 's#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp"
+    PatchFileSafely 's#case(GL_HALF_FLOAT):#case GL_HALF_FLOAT: case 0x8D61:#g' "$OpenSceneGraphRoot/src/osg/Image.cpp"
     if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
-        sed -i.bak 's#isTexture2DArraySupported = validContext#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
+        PatchFileSafely 's#isTexture2DArraySupported = validContext#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
     fi
 fi
 
@@ -550,7 +573,9 @@ elif [ "$BuildMode" = '5' ]; then
 
     # Android toolchain
     cd $CurrentDir/android
-    ./gradlew assemble${AndroidBuildType} || exit 1
+    ./gradlew assemble${AndroidBuildType} -Pabi=$AndroidAbi || exit 1
+    # adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+    # adb logcat -s osgVerse SDL
 
 else
 
@@ -586,11 +611,11 @@ fi
 # Reset some OpenSceneGraph source code
 if [ "$SkipOsgBuild" = 0 ]; then
     echo "*** Automatically unpatching source code..."
-    sed -i.bak 's/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
-    sed -i.bak 's/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
-    sed -i.bak 's/ADD_PLUGIN_DIRECTORY(#ffmpeg)/#ADD_PLUGIN_DIRECTORY(ffmpeg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
-    sed -i.bak 's/#ANDROID_3RD_PARTY(#)/ANDROID_3RD_PARTY()/g' "$OpenSceneGraphRoot/CMakeLists.txt"
-    sed -i.bak 's#NULL;\/\/dlopen\/\/(#dlopen(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
-    sed -i.bak 's#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp"
-    sed -i.bak 's#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
+    PatchFileSafely 's/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+    PatchFileSafely 's/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+    PatchFileSafely 's/ADD_PLUGIN_DIRECTORY(#ffmpeg)/#ADD_PLUGIN_DIRECTORY(ffmpeg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+    PatchFileSafely 's/#ANDROID_3RD_PARTY(#)/ANDROID_3RD_PARTY()/g' "$OpenSceneGraphRoot/CMakeLists.txt"
+    PatchFileSafely 's#NULL;\/\/dlopen\/\/(#dlopen(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
+    PatchFileSafely 's#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp"
+    PatchFileSafely 's#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
 fi
