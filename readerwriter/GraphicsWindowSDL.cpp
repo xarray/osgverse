@@ -216,7 +216,7 @@ protected:
 
 GraphicsWindowSDL::GraphicsWindowSDL(osg::GraphicsContext::Traits* traits)
 :   _glContext(NULL), _glDisplay(NULL), _glSurface(NULL),
-    _lastKey(0), _lastModKey(0), _valid(false), _realized(false)
+    _lastKey(0), _lastModKey(0), _gestureDistance(0.0f), _valid(false), _realized(false)
 {
     _traits = traits; initialize();
     if (valid())
@@ -658,13 +658,26 @@ void GraphicsWindowSDL::checkEvents()
             if (fabs(event.mgesture.dTheta) > (osg::PI / 180.0f))
             {   // TODO: rotation?
             }
-            else if (fabs(event.mgesture.dDist) > 0.002f)
+            else
             {
-                // FIXME: also send user-event?
-                if (event.mgesture.dDist > 0.0f)  // Pinch open
-                    eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP);
-                else  // Pinch close
-                    eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN);
+                // The distance change of the gesture is summed up and only turned into a zoom
+                // step when it is big enough, otherwise every motion event of the gesture
+                // would zoom by a whole step and the view would rush away. Fingers moving
+                // apart (dDist > 0) zoom in and fingers moving together zoom out, so that the
+                // content follows the fingers: this is the SCROLL_DOWN / SCROLL_UP pair since
+                // the manipulators of OSG zoom out on SCROLL_UP (the default wheel zoom factor
+                // of 0.1 lengthens the distance on that motion)
+                int windowSize = (_traits.valid() && _traits->width > 0) ?
+                                 ((_traits->width < _traits->height) ? _traits->width : _traits->height) : 720;
+                _gestureDistance += event.mgesture.dDist;
+                if (fabs(_gestureDistance) > windowSize * 0.02f)
+                {
+                    // FIXME: also send user-event?
+                    eq->mouseScroll((_gestureDistance > 0.0f)  // Pinch open
+                        ? osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN
+                        : osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP);
+                    _gestureDistance = 0.0f;
+                }
             }
             break;
 #else

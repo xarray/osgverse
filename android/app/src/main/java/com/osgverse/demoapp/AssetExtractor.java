@@ -26,22 +26,32 @@ final class AssetExtractor {
     /** Bump this value whenever the assets change, so that they are unpacked again */
     private static final int Version = 2;
 
-    static void extract(Context context) {
-        File targetDir = new File(context.getFilesDir(), Folder);
-        File versionFile = new File(targetDir, VersionFile);
-        if (readVersion(versionFile) == Version) {
-            Log.v(TAG, "Assets are already unpacked in " + targetDir);
-            return;
-        }
+    private static final Object Lock = new Object();
+    private static boolean Done = false;
 
-        Log.v(TAG, "Unpacking the assets to " + targetDir + " (only done once)...");
-        long beginTime = System.currentTimeMillis();
-        try {
-            copyFolder(context.getAssets(), "", targetDir);
-            writeVersion(versionFile);
-            Log.i(TAG, "Unpacked the assets in " + (System.currentTimeMillis() - beginTime) + " ms");
-        } catch (IOException e) {
-            Log.e(TAG, "Failed to unpack the assets: " + e);
+    static void extract(Context context) {
+        // Only one unpacking may run at a time: a second caller (a recreated activity, for
+        // example) waits for it and then finds the assets already in place
+        synchronized (Lock) {
+            if (Done) return;
+
+            File targetDir = new File(context.getFilesDir(), Folder);
+            File versionFile = new File(targetDir, VersionFile);
+            if (readVersion(versionFile) == Version) {
+                Log.v(TAG, "Assets are already unpacked in " + targetDir);
+                Done = true; return;
+            }
+
+            Log.i(TAG, "Unpacking the assets to " + targetDir + " (only done once)...");
+            long beginTime = System.currentTimeMillis();
+            try {
+                copyFolder(context.getAssets(), "", targetDir);
+                writeVersion(versionFile);
+                Done = true;
+                Log.i(TAG, "Unpacked the assets in " + (System.currentTimeMillis() - beginTime) + " ms");
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to unpack the assets: " + e);
+            }
         }
     }
 

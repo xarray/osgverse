@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">osgVerse Demo</string>
     <string name="title_activity_main">osgVerse</string>
+    <string name="launch_sdl_demo">osgVerse SDL2 Demo</string>
+    <string name="preparing_assets">Preparing resources\u2026</string>
 </resources>

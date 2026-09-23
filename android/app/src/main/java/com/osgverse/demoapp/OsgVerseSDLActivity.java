@@ -16,8 +16,11 @@ public class OsgVerseSDLActivity extends org.libsdl.app.SDLActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // The rendering is started by SDLActivity when the surface becomes ready, which
-        // happens after onCreate() has returned, so the assets are ready before that
+        // MainActivity unpacks the assets in the background before this activity is started,
+        // so this call only makes sure that they are there when the activity is restored
+        // without going through MainActivity first (it is a no-op once they are unpacked).
+        // The rendering itself is started by SDLActivity when the surface becomes ready,
+        // which happens after onCreate() has returned
         AssetExtractor.extract(this);
     }
 

@@ -120,7 +120,11 @@ int SDL_main(int argc, char* argv[])
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     osg::ref_ptr<MyViewer> viewer = new MyViewer(pipeline.get());
 
-    viewer->setCameraManipulator(new osgGA::TrackballManipulator);
+    // The camera is not thrown after a drag is released: with the inertia of a touch screen
+    // the view easily flies away
+    osg::ref_ptr<osgGA::TrackballManipulator> manipulator = new osgGA::TrackballManipulator;
+    manipulator->setAllowThrow(false);
+    viewer->setCameraManipulator(manipulator.get());
     viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer->setSceneData(root.get());
 
