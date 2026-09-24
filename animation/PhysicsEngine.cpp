@@ -193,6 +193,7 @@ namespace b3Helpers
         osgVerse::PhysicsEngine* engine;
         std::vector<osgVerse::PhysicsEngine::RaycastHit>* hits;
         bool getNameFromBody;
+        const std::set<std::string>* excludedNames;
     };
 
     static void findBodyName(osgVerse::PhysicsEngine* engine, b3BodyId bodyId, std::string& name)
@@ -227,6 +228,19 @@ namespace b3Helpers
                                  uint64_t materialId, int triangleIndex, int childIndex, void* context)
     {
         RaycastCallbackData* data = (RaycastCallbackData*)context;
+
+        // Skip bodies whose name is in the excluded list (set by QueryFilter or setCollisionEnabled)
+        if (data->excludedNames && !data->excludedNames->empty())
+        {
+            b3BodyId bodyId = b3Shape_GetBody(shapeId);
+            if (B3_IS_NON_NULL(bodyId))
+            {
+                std::string name;
+                b3Helpers::findBodyName(data->engine, bodyId, name);
+                if (data->excludedNames->count(name) > 0) return 1.0f;
+            }
+        }
+
         osgVerse::PhysicsEngine::RaycastHit result;
         setBodyFromShape(result, data->engine, data->getNameFromBody, shapeId, point, normal);
         data->hits->push_back(result); return 1.0f; // Continue ray
@@ -236,12 +250,13 @@ namespace b3Helpers
     {
         osgVerse::PhysicsEngine* engine;
         b3BodyId ignoredBody; bool hasIgnoredBody;
+        const std::set<std::string>* excludedNames;
         bool startedSolid, hit;
         float closestFraction; b3Vec3 closestNormal; b3Pos closestPoint; b3ShapeId closestShape;
 
-        ShapeCastContext(osgVerse::PhysicsEngine* e, b3BodyId ignored)
-        :   engine(e), ignoredBody(ignored), hasIgnoredBody(B3_IS_NON_NULL(ignored)), startedSolid(false),
-            hit(false), closestFraction(1.0f), closestShape(b3_nullShapeId)
+        ShapeCastContext(osgVerse::PhysicsEngine* e, b3BodyId ignored, const std::set<std::string>* excl)
+        :   engine(e), ignoredBody(ignored), hasIgnoredBody(B3_IS_NON_NULL(ignored)), excludedNames(excl),
+            startedSolid(false), hit(false), closestFraction(1.0f), closestShape(b3_nullShapeId)
         { closestNormal = b3Vec3_zero; closestPoint = b3Pos_zero; }
     };
 
@@ -249,8 +264,17 @@ namespace b3Helpers
                                    uint64_t materialId, int triangleIndex, int childIndex, void* context)
     {
         ShapeCastContext* data = (ShapeCastContext*)context;
-        if (data->hasIgnoredBody && B3_ID_EQUALS(b3Shape_GetBody(shapeId), data->ignoredBody))
+        b3BodyId bodyId = b3Shape_GetBody(shapeId);
+        if (data->hasIgnoredBody && B3_ID_EQUALS(bodyId, data->ignoredBody))
             return -1.0f;  // skip the shapes of the ignored body (usually character itself)
+
+        // Skip bodies whose name is in the excluded list (set by QueryFilter or setCollisionEnabled)
+        if (data->excludedNames && !data->excludedNames->empty() && B3_IS_NON_NULL(bodyId))
+        {
+            std::string name;
+            b3Helpers::findBodyName(data->engine, bodyId, name);
+            if (data->excludedNames->count(name) > 0) return data->closestFraction;
+        }
 
         if (fraction == 0.0f)
         { data->startedSolid = true; return -1.0f; }  // already inside something
@@ -526,6 +550,31 @@ void PhysicsEngine::setMassCenter(const std::string& name, const osg::Vec3& cent
     }
 }
 
+void PhysicsEngine::setCollisionEnabled(const std::string& name, bool enabled)
+{
+    if (enabled) _disabledBodies.erase(name);
+    else _disabledBodies.insert(name);
+}
+
+bool PhysicsEngine::isCollisionEnabled(const std::string& name) const
+{ return _disabledBodies.find(name) == _disabledBodies.end(); }
+
+namespace b3Helpers
+{
+    /** Build an effective QueryFilter that merges in the engine's _disabledBodies list so callers
+        do not need to know about disabled bodies. The returned set can be passed to raycast/sweep
+        callbacks to skip disabled body names. */
+    static void buildEffectiveFilter(const osgVerse::PhysicsEngine* engine,
+                                     const osgVerse::PhysicsEngine::QueryFilter& f,
+                                     std::set<std::string>* merged)
+    {
+        merged->clear();
+        merged->insert(f.excludeNames.begin(), f.excludeNames.end());
+        const std::set<std::string>& disabled = engine->getDisabledBodies();
+        merged->insert(disabled.begin(), disabled.end());
+    }
+}
+
 void PhysicsEngine::addConstraint(const std::string& name, ConstraintBase* cBase,
                                   bool noCollisionsBetweenLinked)
 {
@@ -593,10 +642,27 @@ bool PhysicsEngine::raycast(const osg::Vec3& s, const osg::Vec3& e,
     filter.categoryBits = f.categoryBits; filter.maskBits = f.maskBits;
     if (!f.name.empty()) filter.name = f.name.c_str();
 
-    b3RayResult r = b3World_CastRayClosest(PHY_WORLD(), b3ToPos(origin), translation, filter);
-    if (r.hit)
-        b3Helpers::setBodyFromShape(result, this, getNameFromBody, r.shapeId, r.point, r.normal);
-    return r.hit;
+    std::set<std::string> excluded;
+    b3Helpers::buildEffectiveFilter(this, f, &excluded);
+    const std::set<std::string>* excludedPtr = excluded.empty() ? NULL : &excluded;
+
+    // CastRayClosest doesn't expose a callback, so the name-based exclusion filter can't
+    // be applied to it. Use CastRay and pick the nearest hit in code; this also makes the
+    // result robust against Box3D returning hits in a non-distance order.
+    std::vector<RaycastHit> hitList;
+    b3Helpers::RaycastCallbackData data = { this, &hitList, getNameFromBody, excludedPtr };
+    b3World_CastRay(PHY_WORLD(), b3ToPos(origin), translation, filter, b3Helpers::raycastCallback, &data);
+    if (hitList.empty()) return false;
+
+    size_t bestIdx = 0; osg::Vec3 origin0(origin.x, origin.y, origin.z);
+    float bestDist2 = (hitList[0].position - origin0).length2();
+    for (size_t i = 1; i < hitList.size(); ++i)
+    {
+        float d2 = (hitList[i].position - origin0).length2();
+        if (d2 < bestDist2) { bestDist2 = d2; bestIdx = i; }
+    }
+    result = hitList[bestIdx];
+    return true;
 }
 
 std::vector<PhysicsEngine::RaycastHit> PhysicsEngine::raycastAll(const osg::Vec3& s, const osg::Vec3& e,
@@ -608,8 +674,12 @@ std::vector<PhysicsEngine::RaycastHit> PhysicsEngine::raycastAll(const osg::Vec3
     filter.categoryBits = f.categoryBits; filter.maskBits = f.maskBits;
     if (!f.name.empty()) filter.name = f.name.c_str();
 
+    std::set<std::string> excluded;
+    b3Helpers::buildEffectiveFilter(this, f, &excluded);
+    const std::set<std::string>* excludedPtr = excluded.empty() ? NULL : &excluded;
+
     std::vector<RaycastHit> hitList;
-    b3Helpers::RaycastCallbackData data = { this, &hitList, getNameFromBody };
+    b3Helpers::RaycastCallbackData data = { this, &hitList, getNameFromBody, excludedPtr };
     b3World_CastRay(PHY_WORLD(), b3ToPos(origin), translation, filter, b3Helpers::raycastCallback, &data);
     return hitList;
 }
@@ -631,9 +701,13 @@ PhysicsEngine::SweepResult PhysicsEngine::sweep(const osg::Vec3& s, const osg::V
     filter.categoryBits = f.categoryBits; filter.maskBits = f.maskBits;
     if (!f.name.empty()) filter.name = f.name.c_str();
 
+    std::set<std::string> excluded;
+    b3Helpers::buildEffectiveFilter(this, f, &excluded);
+    const std::set<std::string>* excludedPtr = excluded.empty() ? NULL : &excluded;
+
     b3BodyId ignoredId = b3_nullBodyId;
     if (ignoredBody) ignoredId = *ignoredBody->get<b3BodyId>();
-    b3Helpers::ShapeCastContext context(this, ignoredId);
+    b3Helpers::ShapeCastContext context(this, ignoredId, excludedPtr);
     b3World_CastShape(PHY_WORLD(), b3ToPos(b3Vec3{ s.x(), s.y(), s.z() }), &proxy, translation,
                       filter, b3Helpers::shapeCastCallback, &context);
 

@@ -6,6 +6,7 @@
 #include <osg/observer_ptr>
 #include <osg/Shape>
 #include <map>
+#include <set>
 
 namespace osgVerse
 {
@@ -158,6 +159,14 @@ namespace osgVerse
             bodies (such as ragdoll bones) from going through other objects. */
         virtual void setBullet(const std::string& name, bool flag);
 
+        /** Disable or re-enable the body for raycast/raycastAll/sweep queries (by its name).
+            Disabled bodies stay in the physics world and keep colliding physically; the filter
+            only excludes them from collision queries. Internally, disabled names are merged into
+            the QueryFilter::excludeNames of every raycast/raycastAll/sweep call, so callers do
+            not need to specify them. The default state is enabled. */
+        virtual void setCollisionEnabled(const std::string& name, bool enabled);
+        bool isCollisionEnabled(const std::string& name) const;
+
         /** Override the local center of mass of a body. Used by character controllers to lower
             the mass center for better stability. Not supported by all engines. */
         virtual void setMassCenter(const std::string& name, const osg::Vec3& center);
@@ -170,11 +179,13 @@ namespace osgVerse
         const std::map<std::string, ConstraintAndState>& getConstraints() const { return _constraints; }
         const std::map<std::string, osg::ref_ptr<CollisionShapeBase>>& getShapes() const { return _shapes; }
         const std::map<std::string, osg::ref_ptr<RigidBodyBase>>& getBodies() const { return _bodies; }
+        const std::set<std::string>& getDisabledBodies() const { return _disabledBodies; }
 
         // Collision and raycast functions
         struct QueryFilter
         {
             unsigned int categoryBits, maskBits; std::string name;
+            std::set<std::string> excludeNames;  // bodies with these names are skipped (filtered out)
             QueryFilter() : categoryBits(0xFFFFFFFF), maskBits(0xFFFFFFFF) {}
         };
 
@@ -244,6 +255,7 @@ namespace osgVerse
         std::map<std::string, ConstraintAndState> _constraints;
         std::map<std::string, osg::ref_ptr<CollisionShapeBase>> _shapes;
         std::map<std::string, osg::ref_ptr<RigidBodyBase>> _bodies;
+        std::set<std::string> _disabledBodies;  // bodies excluded from raycast/raycastAll/sweep
         osg::ref_ptr<PhysicsCoreBase> _core;
     };
 

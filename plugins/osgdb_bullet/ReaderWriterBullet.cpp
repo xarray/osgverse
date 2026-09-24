@@ -209,6 +209,105 @@ namespace btHelpers
 
         const btCollisionObject* ignoredBody;
     };
+
+    /** Find the engine-managed name of a btCollisionObject by matching its internal pointer. */
+    static std::string findBodyName(const BulletPhysicsEngine* engine, const btCollisionObject* obj)
+    {
+        if (!engine || !obj) return std::string();
+        btRigidBody* target = btRigidBody::upcast(obj);
+        const std::map<std::string, osg::ref_ptr<RigidBodyBase>>& bodies = engine->getBodies();
+        for (std::map<std::string, osg::ref_ptr<RigidBodyBase>>::const_iterator
+             itr = bodies.begin(); itr != bodies.end(); ++itr)
+        {
+            if (itr->second->get<btRigidBody>() == target) return itr->first;
+        }
+        return std::string();
+    }
+
+    /** Build an effective QueryFilter by merging the caller's filter with the engine's
+        _disabledBodies list. Caller owns the returned set. */
+    static std::set<std::string> buildEffectiveExcludeNames(const BulletPhysicsEngine* engine,
+                                                            const QueryFilter& f)
+    {
+        std::set<std::string> merged(f.excludeNames.begin(), f.excludeNames.end());
+        const std::set<std::string>& disabled = engine->getDisabledBodies();
+        merged.insert(disabled.begin(), disabled.end());
+        return merged;
+    }
+
+    /** Closest-ray callback that filters disabled body names. The body is skipped by returning
+        a fraction of 1.0 so the ray continues past it. */
+    struct FilteredClosestRayResult : public btCollisionWorld::ClosestRayResultCallback
+    {
+        FilteredClosestRayResult(const btVector3& from, const btVector3& to,
+                                 const BulletPhysicsEngine* eng,
+                                 const std::set<std::string>& excluded)
+        : btCollisionWorld::ClosestRayResultCallback(from, to), engine(eng), excludedNames(excluded) {}
+
+        virtual btScalar addSingleResult(btCollisionWorld::LocalRayResult& rayResult,
+                                         bool normalInWorldSpace)
+        {
+            const btCollisionObject* obj = rayResult.m_collisionObject;
+            std::string name = btHelpers::findBodyName(engine, obj);
+            if (!name.empty() && excludedNames.count(name) > 0) return 1.0f;
+            return ClosestRayResultCallback::addSingleResult(rayResult, normalInWorldSpace);
+        }
+
+        const BulletPhysicsEngine* engine;
+        const std::set<std::string>& excludedNames;
+    };
+
+    /** All-hits-ray callback that filters disabled body names. Disabled bodies are not pushed
+        into the hit list at all. */
+    struct FilteredAllHitsRayResult : public btCollisionWorld::AllHitsRayResultCallback
+    {
+        FilteredAllHitsRayResult(const btVector3& from, const btVector3& to,
+                                 const BulletPhysicsEngine* eng,
+                                 const std::set<std::string>& excluded)
+        : btCollisionWorld::AllHitsRayResultCallback(from, to), engine(eng), excludedNames(excluded) {}
+
+        virtual btScalar addSingleResult(btCollisionWorld::LocalRayResult& rayResult,
+                                         bool normalInWorldSpace)
+        {
+            const btCollisionObject* obj = rayResult.m_collisionObject;
+            std::string name = btHelpers::findBodyName(engine, obj);
+            if (!name.empty() && excludedNames.count(name) > 0) return 1.0f;
+            return AllHitsRayResultCallback::addSingleResult(rayResult, normalInWorldSpace);
+        }
+
+        const BulletPhysicsEngine* engine;
+        const std::set<std::string>& excludedNames;
+    };
+
+    /** Closest-convex sweep callback that filters disabled body names. */
+    struct FilteredSweepResult : public btCollisionWorld::ClosestConvexResultCallback
+    {
+        FilteredSweepResult(const btVector3& from, const btVector3& to,
+                            const btCollisionObject* ignored,
+                            const BulletPhysicsEngine* eng,
+                            const std::set<std::string>& excluded)
+        : btCollisionWorld::ClosestConvexResultCallback(from, to), ignoredBody(ignored),
+          engine(eng), excludedNames(excluded) {}
+
+        virtual bool needsCollision(btBroadphaseProxy* proxy) const
+        {
+            if (proxy->m_clientObject == (void*)ignoredBody) return false;
+            return ClosestConvexResultCallback::needsCollision(proxy);
+        }
+
+        virtual btScalar addSingleResult(btCollisionWorld::LocalConvexResult& convexResult,
+                                         bool normalInWorldSpace)
+        {
+            const btCollisionObject* obj = convexResult.m_hitCollisionObject;
+            std::string name = btHelpers::findBodyName(engine, obj);
+            if (!name.empty() && excludedNames.count(name) > 0) return 1.0f;
+            return ClosestConvexResultCallback::addSingleResult(convexResult, normalInWorldSpace);
+        }
+
+        const btCollisionObject* ignoredBody;
+        const BulletPhysicsEngine* engine;
+        const std::set<std::string>& excludedNames;
+    };
 }
 
 #define PHY_WORLD() (((btHelpers::PhysicsCore*)_core.get())->_world)
@@ -688,7 +787,8 @@ bool BulletPhysicsEngine::raycast(const osg::Vec3& s, const osg::Vec3& e,
                                   RaycastHit& result, const QueryFilter& f, bool getNameFromBody)
 {
     btVector3 from(s.x(), s.y(), s.z()), to(e.x(), e.y(), e.z());
-    btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
+    std::set<std::string> excluded = btHelpers::buildEffectiveExcludeNames(this, f);
+    btHelpers::FilteredClosestRayResult rayCallback(from, to, this, excluded);
     //rayCallback.m_flags |= btTriangleRaycastCallback::kF_UseGjkConvexCastRaytest;
     rayCallback.m_collisionFilterMask = f.maskBits;
     rayCallback.m_collisionFilterGroup = f.categoryBits;
@@ -717,7 +817,8 @@ std::vector<BulletPhysicsEngine::RaycastHit> BulletPhysicsEngine::raycastAll(
         const osg::Vec3& s, const osg::Vec3& e, const QueryFilter& f, bool getNameFromBody)
 {
     btVector3 from(s.x(), s.y(), s.z()), to(e.x(), e.y(), e.z());
-    btCollisionWorld::AllHitsRayResultCallback rayCallback(from, to);
+    std::set<std::string> excluded = btHelpers::buildEffectiveExcludeNames(this, f);
+    btHelpers::FilteredAllHitsRayResult rayCallback(from, to, this, excluded);
     //rayCallback.m_flags |= btTriangleRaycastCallback::kF_UseGjkConvexCastRaytest;
     rayCallback.m_collisionFilterMask = f.maskBits;
     rayCallback.m_collisionFilterGroup = f.categoryBits;
@@ -768,7 +869,8 @@ BulletPhysicsEngine::SweepResult BulletPhysicsEngine::sweep(const osg::Vec3& s, 
     fromTrans.setOrigin(from + offset); toTrans.setOrigin(to + offset);
 
     btCollisionObject* ignored = ignoredBody ? ignoredBody->get<btRigidBody>() : NULL;
-    btHelpers::SweepResultCallback callback(from + offset, to + offset, ignored);
+    std::set<std::string> excluded = btHelpers::buildEffectiveExcludeNames(this, f);
+    btHelpers::FilteredSweepResult callback(from + offset, to + offset, ignored, this, excluded);
     callback.m_collisionFilterGroup = f.categoryBits;
     callback.m_collisionFilterMask = f.maskBits;
     PHY_WORLD()->convexSweepTest(shape, fromTrans, toTrans, callback);

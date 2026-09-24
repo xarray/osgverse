@@ -67,7 +67,6 @@ namespace osgVerse
         SDL_Window* _sdlWindow;
         void *_glContext, * _glDisplay, *_glSurface;
         int _lastKey, _lastModKey;
-        float _gestureDistance;  // Summed distance change of a multi-touch gesture
         bool _valid, _realized;
     };
 }
