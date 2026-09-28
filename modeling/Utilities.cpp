@@ -873,7 +873,10 @@ namespace osgVerse
             return NULL;
         }
 
-        int halfSamples = samples / 2;
+        int halfSamples = (samples + 1) / 2;  // cover the top pole when samples is odd:
+                                                // halfSamples = samples/2 leaves a gap (e.g.
+                                                // samples=33 stops at theta2 ~84.5 deg, the
+                                                // 90 deg pole is never sampled)
         float samplesF = (float)samples;
 
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
@@ -928,7 +931,7 @@ namespace osgVerse
             return NULL;
         }
 
-        int halfSamples = samples / 2;
+        int halfSamples = (samples + 1) / 2;  // see createEllipsoid(): covers the pole when samples is odd
         float samplesF = (float)samples;
         float delta = 0.02 * osg::PI / samplesF;
 

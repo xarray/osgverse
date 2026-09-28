@@ -78,6 +78,20 @@ namespace osgVerse
             setLightState() is usually what makes a texel small enough to be negligible */
         void setShadowBias(float constantBias, float slopeScale, float normalOffsetScale);
 
+        /** Set the receiver-plane depth bias (method ported from DiligentFX Shadows.fxh): the
+            light-space depth of the receiver is projected onto its surface plane at every
+            filter tap, which removes the acne of grazing surfaces without the peter-panning
+            a single large constant bias would add. See getReceiverPlaneBias() in
+            shadowing.module.glsl for the exact formulation:
+            - fixedDepthBias: constant part added to the compared depth, in the same units
+              CompareDepth() uses; sized to the depth quantization of the shadow map storage
+            - clampScale: limit of the per-texel plane bias, in multiples of one texel's depth
+              delta, bounding it where the receiver is nearly parallel to the light
+
+            The effect is enabled by default (5e-4, 10.0); set both values to 0 to disable it
+            and keep the plain comparison configured by setShadowBias() */
+        void setReceiverPlaneBias(float fixedDepthBias, float clampScale);
+
         /** Set the polygon offset applied while rendering shadow casters (default 1.1, 4.0).
             It is deliberately small: the receiver-side bias and normal offset handle the
             acne, so a large caster-side offset would only add peter-panning */
@@ -136,6 +150,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Uniform> _biasParams;  // vec4: (constNDC, slope, normalOffset, -)
         osg::ref_ptr<osg::Uniform> _biasScales;  // vec4: depth delta of one texel, per cascade
         osg::ref_ptr<osg::Uniform> _texelSizes;  // vec4: world size of one texel, per cascade
+        osg::ref_ptr<osg::Uniform> _planeBiasParams;  // vec4: (fixed, clamp, -, -)
         osg::ref_ptr<osg::Uniform> _mainLightDir;  // vec3: world-space dir to the main light
         osg::ref_ptr<osg::Uniform> _contactShadow;  // vec4: (length, thickness, bias, strength)
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
@@ -147,6 +162,7 @@ namespace osgVerse
         double _shadowMaxDistance; int _shadowNumber;
         float _cascadeBlendRatio;
         float _biasConstant, _biasSlopeScale, _biasNormalOffset;
+        float _planeFixedBias, _planeBiasClamp;
         bool _retainLightPos, _dirtyReference;
         bool _infoPrinted;
     };

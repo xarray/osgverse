@@ -17,6 +17,15 @@ uniform vec4 ShadowBiasScales;
 // World size of one shadow-map texel of each cascade, used by the normal offset
 uniform vec4 ShadowTexelSizes;
 
+// Receiver-plane depth bias, configured by ShadowModule::setReceiverPlaneBias()
+// (method ported from DiligentFX Shadows.fxh):
+//   .x  fixed part, in the same depth space as CompareDepth(); sized to the depth
+//       quantization of the shadow map storage (half-float, see std_shadow_cast.frag.glsl)
+//   .y  clamp of the per-texel plane bias, in multiples of one texel's depth delta (see
+//       ShadowBiasScales); bounds the bias where the receiver is nearly parallel to the
+//       shadow map plane, where the computed slope would otherwise explode
+uniform vec4 ShadowPlaneBiasParams;
+
 // World-space direction from a surface to the main light, taken from the LightDrawable as it
 // is. The shaders convert it to eye space with the same G-Buffer matrix they use for every
 // other transform, so the CPU and the GPU can not disagree about the matrix convention
@@ -144,13 +153,64 @@ vec4 getShadowLookupVertex(in vec4 eyeVertex, in vec3 eyeNormal, in float worldT
     return v;
 }
 
-vec3 getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float bias)
+// Computes (dDepth/dU, dDepth/dV) of the receiver surface from the screen-space derivatives
+// of the shadow-map coordinates, by solving the 2x2 system
+//   | dU/dx  dU/dy  |   | dDepth/dU |   | dDepth/dx |
+//   | dV/dx  dV/dy  | * | dDepth/dV | = | dDepth/dy |
+// Ported from DiligentFX Shadows.fxh: ComputeReceiverPlaneDepthBias()
+vec2 computeReceiverPlaneDepthBias(in vec3 uvDepthDX, in vec3 uvDepthDY)
+{
+    vec2 biasUV;
+    biasUV.x = uvDepthDY.y * uvDepthDX.z - uvDepthDX.y * uvDepthDY.z;
+    biasUV.y = uvDepthDX.x * uvDepthDY.z - uvDepthDY.x * uvDepthDX.z;
+
+    float det = (uvDepthDX.x * uvDepthDY.y) - (uvDepthDX.y * uvDepthDY.x);
+    return biasUV / (sign(det) * max(abs(det), 1e-10));
+}
+
+// Receiver-plane depth bias of one cascade: how much the compared light-space depth of the
+// receiver changes when the lookup moves by one shadow-map texel. The surface rarely faces
+// the shadow map squarely, so a filter kernel covering several texels compares depths which
+// belong to different points of the receiver: projecting the depth onto the surface plane at
+// every tap removes the acne of grazing surfaces without the peter-panning of the single
+// large constant bias the plain slope-scaled scheme needs. The derivatives are taken on the
+// (already normal-offset) lookup vertex; the shadow matrix is constant per pixel, so the
+// derivative of the product is the product with the derivative of the vertex
+vec2 getReceiverPlaneBias(in mat4 shadowMatrix, in vec4 lookupVertex, in vec4 lightProjVec,
+                          in vec2 invMapSize, in float texelDepthDelta)
+{
+    vec4 clipDX = shadowMatrix * vec4(dFdx(lookupVertex.xyz), dFdx(lookupVertex.w));
+    vec4 clipDY = shadowMatrix * vec4(dFdy(lookupVertex.xyz), dFdy(lookupVertex.w));
+
+    // Same w-division and 0.5 UV mapping as in the shadow combining shaders, applied to the
+    // derivatives: d(UV) = 0.5 * (d(xy) * w - xy * dw) / w^2, d(depth) = (dz * w - z * dw) / w^2
+    float w = lightProjVec.w, invW2 = 1.0 / (w * w);
+    vec3 uvDepthDX = vec3((clipDX.xy * w - lightProjVec.xy * clipDX.w) * (0.5 * invW2),
+                          (clipDX.z * w - lightProjVec.z * clipDX.w) * invW2);
+    vec3 uvDepthDY = vec3((clipDY.xy * w - lightProjVec.xy * clipDY.w) * (0.5 * invW2),
+                          (clipDY.z * w - lightProjVec.z * clipDY.w) * invW2);
+
+    // dDepth/dU and dDepth/dV are per unit of UV ([0, 1]); the filter taps are spaced in
+    // texels, so scale the bias to one texel. Clamping bounds it where the receiver plane is
+    // nearly parallel to the shadow map plane (the determinant above then approaches zero),
+    // which would otherwise leak light instead of removing acne
+    vec2 planeBias = computeReceiverPlaneDepthBias(uvDepthDX, uvDepthDY) * invMapSize;
+    float clampValue = ShadowPlaneBiasParams.y * texelDepthDelta;
+    return clamp(planeBias, vec2(-clampValue), vec2(clampValue));
+}
+
+// planeBias is the per-texel receiver-plane depth bias (see getReceiverPlaneBias()); the
+// comparison-free techniques (VSM, ESM, EVSM) accept and ignore it, so that the calling
+// macro does not have to know which technique is active
+vec3 getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth,
+                    in float bias, in vec2 planeBias)
 {
     float depth0 = GetDepthFromShadowMap(shadowMap, lightProjUV);
     return vec3(depth0, depth, CompareDepth(depth0, depth, bias));
 }
 
-vec3 getShadowValue_VSM(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float epsilonVSM)
+vec3 getShadowValue_VSM(in sampler2D shadowMap, in vec2 lightProjUV, in float depth,
+                        in float epsilonVSM, in vec2 planeBias)
 {
     // Copied from osgjs/sources/osgShadow/shaders/vsm.glsl
     vec2 moments = VERSE_TEX2D(shadowMap, lightProjUV.xy).zy;
@@ -158,7 +218,7 @@ vec3 getShadowValue_VSM(in sampler2D shadowMap, in vec2 lightProjUV, in float de
 }
 
 vec3 getShadowValue_ESM(in sampler2D shadowMap, in vec2 lightProjUV, in float depth,
-                        in float exponent0, in float exponent1)
+                        in float exponent0, in float exponent1, in vec2 planeBias)
 {
     // Copied from osgjs/sources/osgShadow/shaders/esm.glsl
     float occluder = GetDepthFromShadowMap(shadowMap, lightProjUV);
@@ -168,7 +228,8 @@ vec3 getShadowValue_ESM(in sampler2D shadowMap, in vec2 lightProjUV, in float de
 }
 
 vec3 getShadowValue_EVSM(in sampler2D shadowMap, in vec2 lightProjUV, in float depth,
-                         in float exponent0, in float exponent1, in float epsilonVSM)
+                         in float exponent0, in float exponent1, in float epsilonVSM,
+                         in vec2 planeBias)
 {
     // Copied from osgjs/sources/osgShadow/shaders/evsm.glsl
     vec4 occluder = VERSE_TEX2D(shadowMap, lightProjUV.xy);
@@ -186,41 +247,64 @@ vec3 getShadowValue_EVSM(in sampler2D shadowMap, in vec2 lightProjUV, in float d
 }
 
 vec3 getShadowValue_PossionPCF(in sampler2D shadowMap, in sampler2D randomMap, in vec2 lightProjUV,
-                               in float depth, in vec2 invMapSize, in float bias)
+                               in float depth, in vec2 invMapSize, in float bias, in vec2 planeBias)
 {
     float shadowed = 0.0, inv = 1.0 / 16.0, radius = length(invMapSize) * 2.0;
+    vec2 mapSize = vec2(1.0) / invMapSize;
     for (int i = 0; i < 16; i++)
     {
         vec2 dir = VERSE_TEX2D(randomMap, vec2(float(i) * inv, 0.25)).xy * 2.0 - vec2(1.0);
+        vec2 uvOffset = dir * vec2(radius);
+        // The receiver depth is projected onto its plane at the tap position; the offset is
+        // converted to texels, which is the unit of getReceiverPlaneBias()
+        float tapDepth = depth + dot(uvOffset * mapSize, planeBias);
         shadowed += CompareDepth(
-            GetDepthFromShadowMap(shadowMap, lightProjUV + dir * vec2(radius)), depth, bias);
+            GetDepthFromShadowMap(shadowMap, lightProjUV + uvOffset), tapDepth, bias);
     }
     return vec3(0.0, depth, shadowed * inv);
 }
 
 vec3 getShadowValue_BandPCF(in sampler2D shadowMap, in vec2 lightProjUV, in float depth,
-                            in vec2 invMapSize, in float bias)
+                            in vec2 invMapSize, in float bias, in vec2 planeBias)
 {
-    vec2 shadowUVbiased = lightProjUV;
+    vec2 shadowUVbiased = lightProjUV, mapSize = vec2(1.0) / invMapSize;
     float dx0 = -invMapSize.x, dy0 = -invMapSize.y, dx1 = invMapSize.x, dy1 = invMapSize.y;
     float dx2 = -2.0 * invMapSize.x, dy2 = -2.0 * invMapSize.y;
     float dx3 = 2.0 * invMapSize.x, dy3 = 2.0 * invMapSize.y, shadowed = 0.0;
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy2)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy2)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy2)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy2)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy0)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy0)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy0)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy0)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy1)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy1)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy1)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy1)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy3)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy3)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy3)), depth, bias);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy3)), depth, bias);
+    // The offsets are whole texels, so the receiver-plane projection of the depth at a tap
+    // is simply the per-texel bias dotted with the integer offset
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy2)),
+                             depth + dot(vec2(dx2, dy2) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy2)),
+                             depth + dot(vec2(dx0, dy2) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy2)),
+                             depth + dot(vec2(dx1, dy2) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy2)),
+                             depth + dot(vec2(dx3, dy2) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy0)),
+                             depth + dot(vec2(dx2, dy0) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy0)),
+                             depth + dot(vec2(dx0, dy0) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy0)),
+                             depth + dot(vec2(dx1, dy0) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy0)),
+                             depth + dot(vec2(dx3, dy0) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy1)),
+                             depth + dot(vec2(dx2, dy1) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy1)),
+                             depth + dot(vec2(dx0, dy1) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy1)),
+                             depth + dot(vec2(dx1, dy1) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy1)),
+                             depth + dot(vec2(dx3, dy1) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy3)),
+                             depth + dot(vec2(dx2, dy3) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy3)),
+                             depth + dot(vec2(dx0, dy3) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy3)),
+                             depth + dot(vec2(dx1, dy3) * mapSize, planeBias), bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy3)),
+                             depth + dot(vec2(dx3, dy3) * mapSize, planeBias), bias);
     return vec3(0.0, depth, shadowed / 16.0);
 }
 

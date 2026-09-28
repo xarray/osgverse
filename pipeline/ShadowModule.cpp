@@ -113,7 +113,8 @@ namespace osgVerse
     ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
     :   _pipeline(pipeline), _technique(PossionPCF), _shadowMaxDistance(-1.0), _shadowNumber(0),
         _cascadeBlendRatio(0.1f), _biasConstant(0.0f), _biasSlopeScale(0.0f),
-        _biasNormalOffset(0.0f), _retainLightPos(false), _dirtyReference(false), _infoPrinted(false)
+        _biasNormalOffset(0.0f), _planeFixedBias(5e-4f), _planeBiasClamp(10.0f),
+        _retainLightPos(false), _dirtyReference(false), _infoPrinted(false)
     {
         for (int i = 0; i < MAX_SHADOWS; ++i) _shadowMaps[i] = new osg::Texture2D;
         _cullFace = new osg::CullFace(osg::CullFace::FRONT);
@@ -132,6 +133,8 @@ namespace osgVerse
             _biasConstant, _biasSlopeScale, _biasNormalOffset, 0.0f));
         _biasScales = new osg::Uniform("ShadowBiasScales", osg::Vec4());
         _texelSizes = new osg::Uniform("ShadowTexelSizes", osg::Vec4());
+        _planeBiasParams = new osg::Uniform("ShadowPlaneBiasParams",
+            osg::Vec4(_planeFixedBias, _planeBiasClamp, 0.0f, 0.0f));
         _mainLightDir = new osg::Uniform("MainLightDirection", osg::Vec3(0.0f, 0.0f, 1.0f));
         _contactShadow = new osg::Uniform("ContactShadowParams", osg::Vec4());
         _lightDirectionWorld.set(0.0f, 0.0f, 1.0f);
@@ -193,6 +196,13 @@ namespace osgVerse
         _biasNormalOffset = normalOffsetScale;
         if (_biasParams.valid())
             _biasParams->set(osg::Vec4(_biasConstant, _biasSlopeScale, _biasNormalOffset, 0.0f));
+    }
+
+    void ShadowModule::setReceiverPlaneBias(float fixedDepthBias, float clampScale)
+    {
+        _planeFixedBias = fixedDepthBias; _planeBiasClamp = clampScale;
+        if (_planeBiasParams.valid())
+            _planeBiasParams->set(osg::Vec4(_planeFixedBias, _planeBiasClamp, 0.0f, 0.0f));
     }
 
     void ShadowModule::setCasterPolygonOffset(float factor, float units)
@@ -340,6 +350,7 @@ namespace osgVerse
         stage->applyUniform(_biasParams.get());
         stage->applyUniform(_biasScales.get());
         stage->applyUniform(_texelSizes.get());
+        stage->applyUniform(_planeBiasParams.get());
         stage->applyUniform(_mainLightDir.get());
         stage->applyUniform(_contactShadow.get());
         return unit;

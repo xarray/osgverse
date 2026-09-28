@@ -467,6 +467,16 @@ namespace osgVerse
             All three default to 0 (the plain hard comparison). Enable them only when one shadow
             texel is small in world space, otherwise the bias removes valid shadows */
         float shadowConstantBias, shadowSlopeScale, shadowNormalOffsetScale;
+        /** Receiver-plane depth bias, forwarded to ShadowModule::setReceiverPlaneBias(). The
+            light-space depth of the receiver is projected onto its surface plane at every
+            filter tap, removing the acne of grazing surfaces without the peter-panning of a
+            single large constant bias:
+            - shadowPlaneFixedBias: constant part, in the units of the compared depth; sized
+              to the depth quantization of the shadow map storage
+            - shadowPlaneBiasClamp: limit of the per-texel plane bias, in multiples of one
+              texel's depth delta
+            Both default to (5e-4, 10.0), which enables the effect; (0, 0) disables it */
+        float shadowPlaneFixedBias, shadowPlaneBiasClamp;
         /** Limit the shadow distance in world units in front of the camera, forwarded to
             LightModule::setShadowMaxDistance(). Casters and receivers farther than it are left
             unshadowed, which is what a scene with a camera far plane far wider than the

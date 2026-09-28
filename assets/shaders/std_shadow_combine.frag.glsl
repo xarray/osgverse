@@ -14,26 +14,26 @@ uniform vec4 CascadeFarDepths;  // far view distance of each cascade
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
 
-#define GET_SHADOW(map, uv, z, bias) getShadowValue(map, uv, z, bias)
+#define GET_SHADOW(map, uv, z, bias, pb) getShadowValue(map, uv, z, bias, pb)
 #ifdef VERSE_SHADOW_POSSION_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias) getShadowValue_PossionPCF(map, RandomTexture, uv, z, InvShadowMapSize, bias)
+#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_PossionPCF(map, RandomTexture, uv, z, InvShadowMapSize, bias, pb)
 #endif
 #ifdef VERSE_SHADOW_BAND_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize, bias)
+#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize, bias, pb)
 #endif
 #ifdef VERSE_SHADOW_VSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias) getShadowValue_VSM(map, uv, z, 0.0008)
+#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_VSM(map, uv, z, 0.0008, pb)
 #endif
 #ifdef VERSE_SHADOW_ESM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias) getShadowValue_ESM(map, uv, z, 0.33, 15.0)
+#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_ESM(map, uv, z, 0.33, 15.0, pb)
 #endif
 #ifdef VERSE_SHADOW_EVSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias) getShadowValue_EVSM(map, uv, z, 0.33, 15.0, 0.0008)
+#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_EVSM(map, uv, z, 0.33, 15.0, 0.0008, pb)
 #endif
 
 float getCascadeShadowValue(in sampler2D shadowMap, in mat4 shadowMatrix, in vec4 eyeVertex,
@@ -41,15 +41,24 @@ float getCascadeShadowValue(in sampler2D shadowMap, in mat4 shadowMatrix, in vec
 {
     // The lookup position is first offset along the receiver normal, so both the UV and the
     // depth below are read from the same (slightly shifted) surface point
-    vec4 lightProjVec = shadowMatrix *
-        getShadowLookupVertex(eyeVertex, eyeNormal, getShadowTexelSize(cascade));
+    vec4 lookupVertex = getShadowLookupVertex(eyeVertex, eyeNormal, getShadowTexelSize(cascade));
+    vec4 lightProjVec = shadowMatrix * lookupVertex;
     vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
     if (any(lessThan(lightProjUV, vec2(0.0))) || any(greaterThan(lightProjUV, vec2(1.0))))
         return 1.0;  // outside of this cascade: treated as unshadowed
 
+    float texelDepthDelta = getShadowBiasScale(cascade);
     float depth = lightProjVec.z / lightProjVec.w;  // real depth in light space
-    float bias = getShadowDepthBias(eyeNormal, eyeLightDir, getShadowBiasScale(cascade));
-    return GET_SHADOW(shadowMap, lightProjUV.xy, depth, bias).z;
+    // Receiver-plane depth bias: the surface rarely faces the shadow map squarely, so its
+    // light-space depth changes across the filter kernel. Projecting the receiver depth onto
+    // the surface plane at every tap removes the acne of grazing surfaces without the
+    // peter-panning of a single large constant bias; the worst-case fractional sampling
+    // error of the projection and a small fixed part are added to the scalar bias
+    vec2 planeBias = getReceiverPlaneBias(
+        shadowMatrix, lookupVertex, lightProjVec, InvShadowMapSize, texelDepthDelta);
+    float bias = getShadowDepthBias(eyeNormal, eyeLightDir, texelDepthDelta)
+               + abs(planeBias.x) + abs(planeBias.y) + ShadowPlaneBiasParams.x;
+    return GET_SHADOW(shadowMap, lightProjUV.xy, depth, bias, planeBias).z;
 }
 
 void main()

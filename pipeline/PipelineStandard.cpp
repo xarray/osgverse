@@ -537,6 +537,7 @@ namespace osgVerse
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0),
         shadowConstantBias(0.0f), shadowSlopeScale(0.0f), shadowNormalOffsetScale(0.0f),
+        shadowPlaneFixedBias(5e-4f), shadowPlaneBiasClamp(10.0f),
         shadowMaxDistance(-1.0), contactShadowLength(0.0f), contactShadowStrength(1.0f),
         depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
@@ -553,6 +554,7 @@ namespace osgVerse
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0),
         shadowConstantBias(0.0f), shadowSlopeScale(0.0f), shadowNormalOffsetScale(0.0f),
+        shadowPlaneFixedBias(5e-4f), shadowPlaneBiasClamp(10.0f),
         shadowMaxDistance(-1.0), contactShadowLength(0.0f), contactShadowStrength(1.0f),
         depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
@@ -909,6 +911,7 @@ namespace osgVerse
         shadowModule->setTechnique((osgVerse::ShadowModule::Technique)spp.shadowTechnique);
         shadowModule->setShadowBias(spp.shadowConstantBias, spp.shadowSlopeScale,
                                     spp.shadowNormalOffsetScale);
+        shadowModule->setReceiverPlaneBias(spp.shadowPlaneFixedBias, spp.shadowPlaneBiasClamp);
         shadowModule->setContactShadow(spp.contactShadowLength, spp.contactShadowStrength);
         
         std::vector<Pipeline::Stage*> shadowStages = shadowModule->createStages(

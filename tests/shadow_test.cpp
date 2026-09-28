@@ -18,6 +18,7 @@
 #include <pipeline/ShadowModule.h>
 #include <pipeline/LightModule.h>
 #include <pipeline/Utilities.h>
+#include <modeling/Utilities.h>
 #include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
@@ -35,14 +36,115 @@ USE_VERSE_PLUGINS()
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
 
+namespace
+{
+    // Small helpers used to assemble a procedural acne-friendly test scene. Mixing
+    // osgVerse::createPrism/createPyramid with osg::ShapeDrawable also exercises the
+    // modeling utilities on shapes that highlight different shadow-bias pathologies.
+    osg::ref_ptr<osg::Geode> makeBoxGeode(const osg::Vec3& center, const osg::Vec3& halfSize)
+    {
+        osg::ref_ptr<osg::Box> box = new osg::Box(
+            center, halfSize.x() * 2.0f, halfSize.y() * 2.0f, halfSize.z() * 2.0f);
+        osg::ref_ptr<osg::ShapeDrawable> sd = new osg::ShapeDrawable(box.get());
+        osg::ref_ptr<osg::Geode> g = new osg::Geode;
+        g->addDrawable(sd.get());
+        return g.get();
+    }
+
+    osg::ref_ptr<osg::Node> placeNode(osg::Node* child, const osg::Vec3& pos,
+                                       const osg::Quat& rot = osg::Quat())
+    {
+        osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+        mt->setMatrix(osg::Matrix::rotate(rot) * osg::Matrix::translate(pos));
+        mt->addChild(child);
+        return mt.get();
+    }
+
+    // Default scene covering the shadow-acne cases that a single real model tends to hide:
+    //   - tall thin pole  : peter-panning vs precision trade-off at the base
+    //   - 4-sided pyramid : slanted faces where the old slope-bias alone fails
+    //   - 8-sided prism   : cap/edge shading on a near-cylinder, plus the octagonal cap
+    //                        transitions where adjacent face normals change a lot
+    //   - small box       : ordinary flat-face self-shadow acne
+    //   - sphere          : continuously varying surface slope (plane bias matters)
+    //   - tilted plank    : 30 deg surface, prone to "swimming" shadow edges
+    //   - row of poles    : 5 heights stepped across cascade boundaries, so the bias
+    //                        transition between cascades is visible at one glance
+    //   - tilted back wall: a large receiver at 60 deg, a classic peter-panning zone
+    //   - ground plane    : receiver for everything above; large enough to keep most
+    //                        shadows on it rather than on tiny casters
+    osg::ref_ptr<osg::Node> createAcneTestScene()
+    {
+        osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+        root->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
+
+        // Ground (wide flat box: a thin slab avoids the single-sided-plane problem)
+        root->addChild(placeNode(
+            makeBoxGeode(osg::Vec3(), osg::Vec3(15.0f, 0.05f, 15.0f)),
+            osg::Vec3(0.0f, -0.05f, 0.0f)));
+        // Cluster A (left of origin)
+        // Tall thin pole: high aspect ratio, base acne / peter-panning test
+        root->addChild(placeNode(
+            makeBoxGeode(osg::Vec3(), osg::Vec3(0.08f, 2.5f, 0.08f)),
+            osg::Vec3(-4.5f, 2.5f, 0.0f)));
+        // Pyramid: slanted faces where the slope-bias-only scheme fails
+        if (osg::Geometry* p = osgVerse::createPyramid(
+                osg::Vec3(-2.5f, 0.0f, -1.5f), 0.6f, 1.6f, 4, true))
+        {
+            osg::ref_ptr<osg::Geode> g = new osg::Geode; g->addDrawable(p);
+            root->addChild(g.get());
+        }
+        // Small box: ordinary flat-face self-shadow acne
+        root->addChild(placeNode(
+            makeBoxGeode(osg::Vec3(), osg::Vec3(0.6f, 0.6f, 0.6f)),
+            osg::Vec3(-2.5f, 0.6f, 0.8f)));
+        // Cluster B (right of origin)
+        // Octagonal prism: cap/edge shading + 8-sided cylinder self-shadow
+        if (osg::Geometry* pr = osgVerse::createPrism(
+                osg::Vec3(2.0f, 0.0f, -1.5f), 0.7f, 0.7f, 1.4f, 8, true))
+        {
+            osg::ref_ptr<osg::Geode> g = new osg::Geode; g->addDrawable(pr);
+            root->addChild(g.get());
+        }
+        // Sphere: continuously varying slope, the case plane bias was designed for
+        {
+            osg::ref_ptr<osg::ShapeDrawable> sd = new osg::ShapeDrawable(
+                new osg::Sphere(osg::Vec3(2.0f, 0.6f, 0.8f), 0.6f));
+            osg::ref_ptr<osg::Geode> g = new osg::Geode; g->addDrawable(sd.get());
+            root->addChild(g.get());
+        }
+        // Tilted thin plank: 30 deg surface, prone to "swimming" shadow edges
+        root->addChild(placeNode(
+            makeBoxGeode(osg::Vec3(), osg::Vec3(2.0f, 0.04f, 0.4f)),
+            osg::Vec3(2.0f, 1.2f, -3.5f),
+            osg::Quat(osg::PI / 6.0f, osg::Vec3(1.0f, 0.0f, 0.0f))));
+        // Row of stepped-height poles along +X: their bases land in different cascades,
+        // so the cascade-boundary bias discontinuity is visible side by side
+        for (int i = 0; i < 5; ++i)
+        {
+            float x = 5.0f + i * 1.2f, h = 0.4f + i * 0.8f;
+            root->addChild(placeNode(
+                makeBoxGeode(osg::Vec3(), osg::Vec3(0.12f, h * 0.5f, 0.12f)),
+                osg::Vec3(x, h * 0.5f, 5.0f)));
+        }
+        // Back wall (large receiver tilted 60 deg): classic peter-panning / acne zone
+        root->addChild(placeNode(
+            makeBoxGeode(osg::Vec3(), osg::Vec3(4.0f, 1.5f, 0.1f)),
+            osg::Vec3(-4.0f, 1.5f, -7.0f),
+            osg::Quat(osg::PI / 3.0f, osg::Vec3(0.0f, 1.0f, 0.0f))));
+        return root.get();
+    }
+}
+
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
-    if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb");
-    if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
+    if (!scene) scene = createAcneTestScene();  // procedural acne-friendly default
+    if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb");  // fallback
+    if (!scene) { OSG_WARN << "Failed to load any scene" << std::endl; return 1; }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
@@ -88,6 +190,9 @@ int main(int argc, char** argv)
             plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::BandPCF;
         if (arguments.read("--no-pcf"))
             plViewer->getParameters().shadowTechnique &= ~osgVerse::ShadowModule::PossionPCF;
+        if (arguments.read("--no-plane-bias"))
+            plViewer->getParameters().shadowPlaneFixedBias =
+            plViewer->getParameters().shadowPlaneBiasClamp = 0.0f;
         viewer = plViewer;
     }
 
