@@ -477,6 +477,29 @@ namespace osgVerse
               texel's depth delta
             Both default to (5e-4, 10.0), which enables the effect; (0, 0) disables it */
         float shadowPlaneFixedBias, shadowPlaneBiasClamp;
+        /** Separable box-blur kernel size (in texels) applied to VSM and EVSM shadow maps
+            before the combine shader reads them. 0 (default) leaves the original unblurred
+            cast output in place; values < 3 do the same. For values >= 3, a pair of full-screen
+            horizontal/vertical blur stages is added per cascade, which is what the original
+            implementation was missing (the hard comparison on unblurred moments is too noisy
+            for VSM/EVSM to look right). The other techniques (PCF variants, ESM) ignore this
+            value: ESM because the cast output is non-linear in depth, PCF variants because
+            they already have their own fixed kernels. The value is the blur *radius* in
+            world units (not in shadow-map texels); the module converts it to a per-cascade
+            texel radius at draw time, so a single number stays meaningful across shadow
+            resolutions. Forwarded to ShadowModule::setShadowFilterSize() */
+        float shadowFilterSize;
+        /** VSM / ESM / EVSM shape parameters, forwarded to ShadowModule::setShadowESMExponents().
+            Only the values relevant to the active technique are read by the GPU; defaults
+            (0.0008, 0.33, 15.0, 0.33, 15.0) reproduce the hardcoded constants of the
+            original cast and combine shaders:
+            - shadowVSMEpsilon: minimum variance floor of ChebyshevUpperBound() for VSM/EVSM
+            - shadowESMOverDarkening: multiplier on the ESM receiver-side exp() result
+            - shadowESMDepthScale: depth multiplier in the ESM exp() call
+            - shadowEVSMPositiveExponent / shadowEVSMNegativeExponent: warp depth scales for
+              EVSM, capped at ~5.54 on half-float shadow maps */
+        float shadowVSMEpsilon, shadowESMOverDarkening, shadowESMDepthScale,
+              shadowEVSMPositiveExponent, shadowEVSMNegativeExponent;
         /** Limit the shadow distance in world units in front of the camera, forwarded to
             LightModule::setShadowMaxDistance(). Casters and receivers farther than it are left
             unshadowed, which is what a scene with a camera far plane far wider than the

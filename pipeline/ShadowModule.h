@@ -25,7 +25,7 @@ namespace osgVerse
 
         enum TechniqueItem
         {
-            DefaultSM = 0, EyeSpaceDepthSM = 0x1, BandPCF = 0x2, PossionPCF = 0x4,
+            DefaultSM = 0, BandPCF = 0x2, PossionPCF = 0x4,
             VarianceSM = 0x8, ExponentialSM = 0x10, ExponentialVarianceSM = 0x20
         };
         typedef int Technique; // TechniqueItems
@@ -92,6 +92,35 @@ namespace osgVerse
             and keep the plain comparison configured by setShadowBias() */
         void setReceiverPlaneBias(float fixedDepthBias, float clampScale);
 
+        /** Enable a separable box blur on the shadow map and set its kernel size (in texels).
+            When filterSize is 0 or 1 (default), the blur stages are not created and the
+            combine shader reads the cast output directly. For VSM and EVSM, a kernel of 3 or
+            more blurs the moments before they are used by ChebyshevUpperBound(), which is
+            the missing step the original osgVerse implementation needed for VSM/EVSM to be
+            useful (the hard comparison on unblurred moments has so much noise that the
+            variance estimate is unreliable). Other techniques (PCF variants, ESM) ignore
+            this setting: ESM because the cast output is non-linear in depth and blurring it
+            is not a valid estimator, PCF variants because they already have their own
+            fixed kernels. See std_shadow_blur.frag.glsl for the kernel formulation
+            (DiligentFX ShadowConversions.fx GetSampleWeight, ported to GLSL) */
+        void setShadowFilterSize(float worldRadius);
+
+        /** Set the warp / shape parameters of the VSM / ESM / EVSM techniques (replaces the
+            hardcoded constants 0.33 and 15.0 in std_shadow_cast.frag.glsl):
+            - vsmEpsilon: minimum variance floor of ChebyshevUpperBound() for VSM/EVSM
+              (default 0.0008, original osgVerse value)
+            - esmOverDarkening: multiplier on the ESM receiver-side exp() result
+              (default 0.33)
+            - esmDepthScale: depth multiplier in the ESM exp() call
+              (default 15.0)
+            - evsmPositiveExponent: positive depth scale in WarpDepth() for EVSM
+              (default 0.33); has to stay <= ~5.54 on half-float shadow maps
+            - evsmNegativeExponent: negative depth scale in WarpDepth() for EVSM
+              (default 15.0); same half-float limit applies */
+        void setShadowESMExponents(float vsmEpsilon, float esmOverDarkening,
+                                   float esmDepthScale, float evsmPositiveExponent,
+                                   float evsmNegativeExponent);
+
         /** Set the polygon offset applied while rendering shadow casters (default 1.1, 4.0).
             It is deliberately small: the receiver-side bias and normal offset handle the
             acne, so a large caster-side offset would only add peter-panning */
@@ -110,6 +139,18 @@ namespace osgVerse
 
         osg::Texture2D* getTexture(int i) { return _shadowMaps[i].get(); }
         const osg::Texture2D* getTexture(int i) const { return _shadowMaps[i].get(); }
+
+        /** The texture that is actually sampled by the combine shader. When separable blur is
+            enabled for VSM/EVSM, this is the output of the blur chain; otherwise it is the
+            same texture getTexture(i) returns */
+        osg::Texture2D* getFilterableTexture(int i) {
+            return (_filterableShadowMaps[i].valid() ? _filterableShadowMaps[i].get()
+                                                    : _shadowMaps[i].get()); }
+        const osg::Texture2D* getFilterableTexture(int i) const {
+            return (_filterableShadowMaps[i].valid() ? _filterableShadowMaps[i].get()
+                                                    : _shadowMaps[i].get()); }
+
+        float getShadowFilterSize() const { return _shadowFilterSize; }
 
         osg::Uniform* getLightMatrices() { return _lightMatrices.get(); }
         const osg::Uniform* getLightMatrices() const { return _lightMatrices.get(); }
@@ -134,15 +175,29 @@ namespace osgVerse
 
     protected:
         virtual ~ShadowModule();
+        struct BlurPair
+        {
+            // The ShadowFilterAttribs uniform of the H and V passes for one cascade. The x
+            // component (kernel radius in shadow-map texels) is updated every draw from the
+            // world-space radius * setShadowFilterSize(), divided by the per-cascade texel
+            // size; the y component (direction flag) stays 1.0 / 0.0. Two separate uniforms
+            // because the H and V passes live on different StateSets and each needs its own
+            // uniform slot
+            osg::ref_ptr<osg::Uniform> attribsH, attribsV;
+        };
         Pipeline::Stage* createShadowCaster(int id, osg::Program* prog, unsigned int casterMask);
+        Pipeline::Stage* createShadowBlur(int id, osg::Texture2D* srcMap, osg::Texture2D* dstMap,
+                                          bool horizontal, BlurPair* pair);
         void updateFrustumGeometry(int id, osg::Camera* shadowCam);
-        
+        bool isFilterable() const;
+
         osg::observer_ptr<Pipeline> _pipeline;
         osg::observer_ptr<osg::Camera> _updatedCamera;
         osg::ref_ptr<osg::Geode> _shadowFrustum;
         osg::ref_ptr<osg::CullFace> _cullFace;
         osg::ref_ptr<osg::PolygonOffset> _polygonOffset;
-        osg::ref_ptr<osg::Texture2D> _shadowMaps[MAX_SHADOWS];
+        osg::ref_ptr<osg::Texture2D> _shadowMaps[MAX_SHADOWS];  // written by the cast pass
+        osg::ref_ptr<osg::Texture2D> _filterableShadowMaps[MAX_SHADOWS];  // sampled by combine
         osg::ref_ptr<osg::Uniform> _lightMatrices;  // matrixf[]
         osg::ref_ptr<osg::Uniform> _invTextureSize;  // vec2
         osg::ref_ptr<osg::Uniform> _cascadeInfo;  // vec2: (num, blendRatio)
@@ -153,6 +208,11 @@ namespace osgVerse
         osg::ref_ptr<osg::Uniform> _planeBiasParams;  // vec4: (fixed, clamp, -, -)
         osg::ref_ptr<osg::Uniform> _mainLightDir;  // vec3: world-space dir to the main light
         osg::ref_ptr<osg::Uniform> _contactShadow;  // vec4: (length, thickness, bias, strength)
+        osg::ref_ptr<osg::Uniform> _esmExponents;  // vec4: (vsm eps, esm beta, esm alpha, -)
+        osg::ref_ptr<osg::Uniform> _evsmExponents;  // vec2: (positive, negative)
+        osg::ref_ptr<osg::Program> _blurProgram;  // shared by all blur stages
+        int _blurSize, _blurDownsample;  // blur runs at _blurSize = castSize / _blurDownsample
+        std::vector<BlurPair> _blurAttribs;
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
         osg::Matrix _lightMatrix, _lightInputMatrix;
@@ -163,8 +223,11 @@ namespace osgVerse
         float _cascadeBlendRatio;
         float _biasConstant, _biasSlopeScale, _biasNormalOffset;
         float _planeFixedBias, _planeBiasClamp;
+        float _shadowFilterSize;  // 0: no blur; >0: separable box blur, kernel radius in world units
+                                   // (per-cascade texel radius = worldRadius / cascadeTexelSize, so a
+                                   // single world-space value stays meaningful across shadow resolutions)
         bool _retainLightPos, _dirtyReference;
-        bool _infoPrinted;
+        bool _infoPrinted, _blurClamped;
     };
 
     class ShadowDrawCallback : public CameraDrawCallback

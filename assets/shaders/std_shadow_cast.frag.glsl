@@ -20,7 +20,20 @@ float DecodeFloatRGBA(vec4 v)
 }
 #endif
 
-const float exponent0 = 0.33, exponent1 = 15.0;
+
+// ESM shape parameters, configured by ShadowModule::setShadowESMExponents():
+//   .x  VSM / EVSM epsilon (unused by ESM)
+//   .y  ESM over-darkening factor (unused, kept for symmetry with the combine stage)
+//   .z  ESM depth scale: depth is multiplied by this before being negated in exp()
+//   .w  reserved
+// Default (0, 0.33, 15.0, 0) reproduces the original cast behavior (only .z matters for ESM)
+uniform vec4 ShadowESMExponents;
+
+// EVSM warp exponents: positive and negative depth scales used in WarpDepth() to build the
+// warped moments stored in .r/.g (and .b/.a for the squared terms). Defaults (0.33, 15.0)
+// reproduce the original cast behavior
+uniform vec2 ShadowEVSMExponents;
+
 #ifdef VERSE_SHADOW_EVSM
 vec2 WarpDepth(in float depth, in vec2 exponents)
 {
@@ -40,13 +53,13 @@ void main()
 
 #ifdef VERSE_SHADOW_ESM
     float de = lightProjVec.z * 0.5 / lightProjVec.w + 0.5;
-    fragData = vec4(1.0, 0.0, exp(-de * exponent1), 1.0);
+    fragData = vec4(1.0, 0.0, exp(-de * ShadowESMExponents.z), 1.0);
     VERSE_FS_FINAL(fragData); return;
 #endif
 
 #ifdef VERSE_SHADOW_EVSM
     float dev = lightProjVec.z * 0.5 / lightProjVec.w + 0.5;
-    vec2 warpedDepth = WarpDepth(dev, vec2(exponent0, exponent1));
+    vec2 warpedDepth = WarpDepth(dev, ShadowEVSMExponents);
     fragData = vec4(warpedDepth.xy, warpedDepth.xy * warpedDepth.xy);
     VERSE_FS_FINAL(fragData); return;
 #endif

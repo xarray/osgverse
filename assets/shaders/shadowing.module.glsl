@@ -100,13 +100,12 @@ float GetDepthFromShadowMap(in sampler2D shadowMap, in vec2 lightProjUV)
 #endif
 }
 
+// depth0 is the receiver depth, depth1 the stored (caster) depth, both in the normalized
+// [0, 1] light-space depth the shadow camera's ortho projection writes. depth0 > depth1 + bias
+// means the receiver is farther from the light than what the map recorded, so it is lit
 float CompareDepth(float depth0, float depth1, float bias)
 {
-#ifdef VERSE_SHADOW_EYESPACE
-    return (depth1 < (depth0 - bias)) ? 0.0 : 1.0;
-#else
     return (depth1 > (depth0 + bias)) ? 0.0 : 1.0;
-#endif
 }
 
 // Slope-scaled depth bias of the receiver, in the depth space compared by CompareDepth().
@@ -222,8 +221,8 @@ vec3 getShadowValue_ESM(in sampler2D shadowMap, in vec2 lightProjUV, in float de
 {
     // Copied from osgjs/sources/osgShadow/shaders/esm.glsl
     float occluder = GetDepthFromShadowMap(shadowMap, lightProjUV);
-    float over_darkening_factor = exponent0, depthScale = exponent1;
-    float receiver = occluder * exp(depthScale * (depth * 0.5 + 0.5));
+    float over_darkening_factor = exponent0, slopeAlpha = exponent1;
+    float receiver = occluder * exp(slopeAlpha * (depth * 0.5 + 0.5));
     return vec3(occluder, depth, 1.0 - clamp(over_darkening_factor * receiver, 0.0, 1.0));
 }
 
@@ -237,8 +236,8 @@ vec3 getShadowValue_EVSM(in sampler2D shadowMap, in vec2 lightProjUV, in float d
     vec2 warpedDepth = WarpDepth(depth * 0.5 + 0.5, exponents);
 
     float derivationEVSM = epsilonVSM;  // Derivative of warping at depth
-    vec2 depthScale = vec2(derivationEVSM) * exponents * warpedDepth;
-    vec2 minVariance = depthScale * depthScale;
+    vec2 slopeAlpha = vec2(derivationEVSM) * exponents * warpedDepth;
+    vec2 minVariance = slopeAlpha * slopeAlpha;
 
     // Compute the upper bounds of the visibility function both for x and y
     float posContrib = ChebyshevUpperBound(occluder.xz, -warpedDepth.x, minVariance.x);

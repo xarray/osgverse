@@ -1,4 +1,4 @@
-#pragma import_defines(VERSE_SHADOW_EYESPACE, VERSE_SHADOW_BAND_PCF, VERSE_SHADOW_POSSION_PCF)
+#pragma import_defines(VERSE_SHADOW_BAND_PCF, VERSE_SHADOW_POSSION_PCF)
 #pragma import_defines(VERSE_SHADOW_VSM, VERSE_SHADOW_ESM, VERSE_SHADOW_EVSM, VERSE_SHADOW_DEBUGCOLOR)
 #include "shadowing.module.glsl"
 
@@ -11,6 +11,8 @@ uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 InvShadowMapSize;
 uniform vec2 CascadeInfo;  // (number of cascades, ratio of the blending band)
 uniform vec4 CascadeFarDepths;  // far view distance of each cascade
+uniform vec4 ShadowESMExponents;
+uniform vec2 ShadowEVSMExponents;
 VERSE_FS_IN vec4 texCoord0;
 
 #ifdef VERSE_GLES3
@@ -18,26 +20,27 @@ layout(location = 0) VERSE_FS_OUT vec4 fragData;
 layout(location = 1) VERSE_FS_OUT vec4 dbgDepth;
 #endif
 
-#define GET_SHADOW(map, uv, z, bias, pb) getShadowValue(map, uv, z, bias, pb)
+#define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue(map, uv, recDepth, bias, pb)
 #ifdef VERSE_SHADOW_POSSION_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_PossionPCF(map, RandomTexture, uv, z, InvShadowMapSize, bias, pb)
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_PossionPCF(map, RandomTexture, uv, recDepth, InvShadowMapSize, bias, pb)
 #endif
 #ifdef VERSE_SHADOW_BAND_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize, bias, pb)
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_BandPCF(map, uv, recDepth, InvShadowMapSize, bias, pb)
 #endif
 #ifdef VERSE_SHADOW_VSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_VSM(map, uv, z, 0.0008, pb)
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_VSM(map, uv, recDepth, ShadowESMExponents.x, pb)
 #endif
 #ifdef VERSE_SHADOW_ESM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_ESM(map, uv, z, 0.33, 15.0, pb)
+// See the matching comment in std_shadow_combine.frag.glsl for why `recDepth` instead of `z`
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_ESM(map, uv, recDepth, ShadowESMExponents.y, ShadowESMExponents.z, pb)
 #endif
 #ifdef VERSE_SHADOW_EVSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_EVSM(map, uv, z, 0.33, 15.0, 0.0008, pb)
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_EVSM(map, uv, recDepth, ShadowEVSMExponents.x, ShadowEVSMExponents.y, ShadowESMExponents.x, pb)
 #endif
 
 void main()

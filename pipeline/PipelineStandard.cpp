@@ -538,6 +538,13 @@ namespace osgVerse
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0),
         shadowConstantBias(0.0f), shadowSlopeScale(0.0f), shadowNormalOffsetScale(0.0f),
         shadowPlaneFixedBias(5e-4f), shadowPlaneBiasClamp(10.0f),
+        shadowFilterSize(0.0f),
+        shadowVSMEpsilon(8e-4f), shadowESMOverDarkening(0.33f), shadowESMDepthScale(15.0f),
+        // fp16 shadow maps clip exp(-exponent * depth) for exponents above ~5.54; using 15.0
+        // (the osgjs hardcoded value) here would zero the negative moment channel for any
+        // depth above ~0.4 and turn the shadow map into pure garbage. 5.54 is the DiligentFX
+        // reference value for half-float storage
+        shadowEVSMPositiveExponent(5.54f), shadowEVSMNegativeExponent(5.54f),
         shadowMaxDistance(-1.0), contactShadowLength(0.0f), contactShadowStrength(1.0f),
         depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
@@ -555,6 +562,13 @@ namespace osgVerse
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0),
         shadowConstantBias(0.0f), shadowSlopeScale(0.0f), shadowNormalOffsetScale(0.0f),
         shadowPlaneFixedBias(5e-4f), shadowPlaneBiasClamp(10.0f),
+        shadowFilterSize(0.0f),
+        shadowVSMEpsilon(8e-4f), shadowESMOverDarkening(0.33f), shadowESMDepthScale(15.0f),
+        // fp16 shadow maps clip exp(-exponent * depth) for exponents above ~5.54; using 15.0
+        // (the osgjs hardcoded value) here would zero the negative moment channel for any
+        // depth above ~0.4 and turn the shadow map into pure garbage. 5.54 is the DiligentFX
+        // reference value for half-float storage
+        shadowEVSMPositiveExponent(5.54f), shadowEVSMNegativeExponent(5.54f),
         shadowMaxDistance(-1.0), contactShadowLength(0.0f), contactShadowStrength(1.0f),
         depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
@@ -912,6 +926,11 @@ namespace osgVerse
         shadowModule->setShadowBias(spp.shadowConstantBias, spp.shadowSlopeScale,
                                     spp.shadowNormalOffsetScale);
         shadowModule->setReceiverPlaneBias(spp.shadowPlaneFixedBias, spp.shadowPlaneBiasClamp);
+        shadowModule->setShadowFilterSize(spp.shadowFilterSize);
+        shadowModule->setShadowESMExponents(spp.shadowVSMEpsilon, spp.shadowESMOverDarkening,
+                                            spp.shadowESMDepthScale,
+                                            spp.shadowEVSMPositiveExponent,
+                                            spp.shadowEVSMNegativeExponent);
         shadowModule->setContactShadow(spp.contactShadowLength, spp.contactShadowStrength);
         
         std::vector<Pipeline::Stage*> shadowStages = shadowModule->createStages(

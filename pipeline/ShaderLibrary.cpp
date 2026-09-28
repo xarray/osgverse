@@ -224,6 +224,13 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
         extLines.push_back("#extension GL_EXT_draw_buffers: enable");
         extLines.push_back("#extension GL_OES_standard_derivatives: enable");
+#else
+        // Desktop GL: enable derivatives explicitly. The receiver-plane depth bias in
+        // shadowing.module.glsl relies on dFdx/dFdy, and GLSL 1.20 (the compat profile the
+        // pipeline defaults to) keeps them out of core. NVIDIA accepts this OES extension name
+        // on desktop; on Mesa/AMD the same line works too via the GL_OES_standard_derivatives
+        // string in glGetStringi(GL_EXTENSIONS, ...)
+        extLines.push_back("#extension GL_OES_standard_derivatives : enable");
 #endif
     }
 

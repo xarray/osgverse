@@ -1,4 +1,4 @@
-#pragma import_defines(VERSE_SHADOW_EYESPACE, VERSE_SHADOW_BAND_PCF, VERSE_SHADOW_POSSION_PCF)
+#pragma import_defines(VERSE_SHADOW_BAND_PCF, VERSE_SHADOW_POSSION_PCF)
 #pragma import_defines(VERSE_SHADOW_VSM, VERSE_SHADOW_ESM, VERSE_SHADOW_EVSM)
 #include "shadowing.module.glsl"
 
@@ -14,26 +14,43 @@ uniform vec4 CascadeFarDepths;  // far view distance of each cascade
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
 
-#define GET_SHADOW(map, uv, z, bias, pb) getShadowValue(map, uv, z, bias, pb)
+// VSM min-variance / EVSM epsilon and ESM shape parameters, configured by
+// ShadowModule::setShadowESMExponents(). The fields have different semantic roles per
+// technique but only one technique is active at a time, so a single vector is enough:
+//   .x  VSM / EVSM epsilon (the minimum variance floor of ChebyshevUpperBound)
+//   .y  ESM over-darkening factor (multiplier on the receiver-side exp value)
+//   .z  ESM depth scale (depth multiplied by this before being negated)
+//   .w  reserved
+uniform vec4 ShadowESMExponents;
+
+// EVSM warp exponents: cast and combine apply WarpDepth() with these two exponents; defaults
+// (0.33, 15.0) reproduce the original hardcoded values. fp16 storage clips the exponent at
+// ~5.54, so the second channel has to stay below that on platforms with half-float shadow maps
+uniform vec2 ShadowEVSMExponents;
+
+#define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue(map, uv, recDepth, bias, pb)
 #ifdef VERSE_SHADOW_POSSION_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_PossionPCF(map, RandomTexture, uv, z, InvShadowMapSize, bias, pb)
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_PossionPCF(map, RandomTexture, uv, recDepth, InvShadowMapSize, bias, pb)
 #endif
 #ifdef VERSE_SHADOW_BAND_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize, bias, pb)
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_BandPCF(map, uv, recDepth, InvShadowMapSize, bias, pb)
 #endif
 #ifdef VERSE_SHADOW_VSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_VSM(map, uv, z, 0.0008, pb)
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_VSM(map, uv, recDepth, ShadowESMExponents.x, pb)
 #endif
 #ifdef VERSE_SHADOW_ESM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_ESM(map, uv, z, 0.33, 15.0, pb)
+// The 3rd macro param is `recDepth` rather than `z` because the C preprocessor would
+// otherwise replace every `z` token in the body, including `ShadowESMExponents.z`, with
+// the caller's 3rd argument (`depth`), producing the invalid swizzle `ShadowESMExponents.depth`
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_ESM(map, uv, recDepth, ShadowESMExponents.y, ShadowESMExponents.z, pb)
 #endif
 #ifdef VERSE_SHADOW_EVSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z, bias, pb) getShadowValue_EVSM(map, uv, z, 0.33, 15.0, 0.0008, pb)
+#   define GET_SHADOW(map, uv, recDepth, bias, pb) getShadowValue_EVSM(map, uv, recDepth, ShadowEVSMExponents.x, ShadowEVSMExponents.y, ShadowESMExponents.x, pb)
 #endif
 
 float getCascadeShadowValue(in sampler2D shadowMap, in mat4 shadowMatrix, in vec4 eyeVertex,

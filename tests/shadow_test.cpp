@@ -178,8 +178,6 @@ int main(int argc, char** argv)
         osgVerse::StandardPipelineViewer* plViewer = new osgVerse::StandardPipelineViewer(false, true, true);
         plViewer->getParameters().enableAO = false;
         plViewer->getParameters().enablePostEffects = false;
-        if (arguments.read("--eyespace-depth"))
-            plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::EyeSpaceDepthSM;
         if (arguments.read("--vsm"))
             plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::VarianceSM;
         if (arguments.read("--esm"))
@@ -193,6 +191,22 @@ int main(int argc, char** argv)
         if (arguments.read("--no-plane-bias"))
             plViewer->getParameters().shadowPlaneFixedBias =
             plViewer->getParameters().shadowPlaneBiasClamp = 0.0f;
+        // Blur radius is in world units (not shadow-map texels). The digit in the flag is just a
+        // preset index for the strength of the effect; -3 is mild, -7 is strong. A 4096² shadow
+        // map has ~0.003 world units per texel, so a value of 0.1 already gives a clearly
+        // visible soft edge. See ShadowModule::setShadowFilterSize() for the per-cascade
+        // texel conversion
+        if (arguments.read("--blur-3")) plViewer->getParameters().shadowFilterSize = 0.1f;
+        if (arguments.read("--blur-5")) plViewer->getParameters().shadowFilterSize = 0.3f;
+        if (arguments.read("--blur-7")) plViewer->getParameters().shadowFilterSize = 1.0f;
+        // Negative arguments override the cast exponent directly:
+        //   --esm-alpha X         -> ShadowESMExponents.z
+        //   --evsm-positive X     -> ShadowEVSMExponents.x (clamped to 5.54 on half-float)
+        //   --evsm-negative X     -> ShadowEVSMExponents.y
+        float argF = 0.0f;
+        if (arguments.read("--esm-alpha", argF)) plViewer->getParameters().shadowESMDepthScale = argF;
+        if (arguments.read("--evsm-positive", argF)) plViewer->getParameters().shadowEVSMPositiveExponent = argF;
+        if (arguments.read("--evsm-negative", argF)) plViewer->getParameters().shadowEVSMNegativeExponent = argF;
         viewer = plViewer;
     }
 
@@ -273,9 +287,11 @@ int main(int argc, char** argv)
         }
         for (int i = 0; i < shadow->getShadowNumber(); ++i)
         {
+            // Show the map the combine pass actually samples, so a broken blur chain is visible
+            // in the corner quads instead of only in the final image
             osg::Node* quad = osgVerse::createScreenQuad(
                 osg::Vec3(0.0f, quadY, 0.0f), 0.2f, 0.2f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
-            quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, shadow->getTexture(i));
+            quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, shadow->getFilterableTexture(i));
             postCamera->addChild(quad); quadY += 0.201f;
         }
     }

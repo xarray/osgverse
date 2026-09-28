@@ -113,8 +113,9 @@ namespace osgVerse
     ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
     :   _pipeline(pipeline), _technique(PossionPCF), _shadowMaxDistance(-1.0), _shadowNumber(0),
         _cascadeBlendRatio(0.1f), _biasConstant(0.0f), _biasSlopeScale(0.0f),
-        _biasNormalOffset(0.0f), _planeFixedBias(5e-4f), _planeBiasClamp(10.0f),
-        _retainLightPos(false), _dirtyReference(false), _infoPrinted(false)
+        _biasNormalOffset(0.0f),         _planeFixedBias(5e-4f), _planeBiasClamp(10.0f),
+        _blurSize(0), _blurDownsample(1), _shadowFilterSize(0.0f),
+        _retainLightPos(false), _dirtyReference(false), _infoPrinted(false), _blurClamped(false)
     {
         for (int i = 0; i < MAX_SHADOWS; ++i) _shadowMaps[i] = new osg::Texture2D;
         _cullFace = new osg::CullFace(osg::CullFace::FRONT);
@@ -137,6 +138,10 @@ namespace osgVerse
             osg::Vec4(_planeFixedBias, _planeBiasClamp, 0.0f, 0.0f));
         _mainLightDir = new osg::Uniform("MainLightDirection", osg::Vec3(0.0f, 0.0f, 1.0f));
         _contactShadow = new osg::Uniform("ContactShadowParams", osg::Vec4());
+        // Defaults reproduce the original hardcoded constants 0.0008 / 0.33 / 15.0 / 0.33 / 15.0
+        _esmExponents = new osg::Uniform("ShadowESMExponents",
+            osg::Vec4(8e-4f, 0.33f, 15.0f, 0.0f));
+        _evsmExponents = new osg::Uniform("ShadowEVSMExponents", osg::Vec2(0.33f, 15.0f));
         _lightDirectionWorld.set(0.0f, 0.0f, 1.0f);
         if (pipeline) pipeline->addModule(name, this);
     }
@@ -149,17 +154,6 @@ namespace osgVerse
     void ShadowModule::applyTechniqueDefines(osg::StateSet* ss) const
     {
 #if OSG_VERSION_GREATER_THAN(3, 3, 6)
-        if (_technique & EyeSpaceDepthSM)
-        {
-            ss->setDefine("VERSE_SHADOW_EYESPACE");
-            if ((_technique & VarianceSM) > 0 || (_technique & ExponentialSM) > 0 ||
-                (_technique & ExponentialVarianceSM) > 0)
-            {
-                OSG_NOTICE << "[ShadowModule] Current shadow technique " << std::hex << _technique
-                           << std::dec << " is unsupported with eye-space depth" << std::endl; return;
-            }
-        }
-
         if (_technique & BandPCF) ss->setDefine("VERSE_SHADOW_BAND_PCF");
         if (_technique & PossionPCF) ss->setDefine("VERSE_SHADOW_POSSION_PCF");
 #   if defined(VERSE_EMBEDDED_GLES2)
@@ -203,6 +197,32 @@ namespace osgVerse
         _planeFixedBias = fixedDepthBias; _planeBiasClamp = clampScale;
         if (_planeBiasParams.valid())
             _planeBiasParams->set(osg::Vec4(_planeFixedBias, _planeBiasClamp, 0.0f, 0.0f));
+    }
+
+    void ShadowModule::setShadowFilterSize(float worldRadius)
+    {
+        // World-space blur radius (not texels). The blur stages are still created up front,
+        // and every frame updateInDraw() converts this to a per-cascade texel radius via the
+        // cascade's texel size (texelRadius = worldRadius / cascadeTexelSize), so a single
+        // value stays meaningful across shadow resolutions. 0 (or negative) means no blur.
+        // Must be called before createStages() so the chain exists in the first place
+        _shadowFilterSize = (worldRadius > 0.0f) ? worldRadius : 0.0f;
+    }
+
+    void ShadowModule::setShadowESMExponents(float vsmEpsilon, float esmOverDarkening,
+                                             float esmDepthScale, float evsmPositiveExponent,
+                                             float evsmNegativeExponent)
+    {
+        if (_esmExponents.valid())
+            _esmExponents->set(osg::Vec4(vsmEpsilon, esmOverDarkening, esmDepthScale, 0.0f));
+        if (_evsmExponents.valid())
+            _evsmExponents->set(osg::Vec2(evsmPositiveExponent, evsmNegativeExponent));
+    }
+
+    bool ShadowModule::isFilterable() const
+    {
+        return _shadowFilterSize > 0.0f &&
+               ((_technique & VarianceSM) != 0 || (_technique & ExponentialVarianceSM) != 0);
     }
 
     void ShadowModule::setCasterPolygonOffset(float factor, float units)
@@ -260,62 +280,266 @@ namespace osgVerse
     }
 
     std::vector<Pipeline::Stage*> ShadowModule::createStages(int shadowSize, int shadowNum,
-                                                             osg::Shader* vs, osg::Shader* fs, unsigned int casterMask)
-    {
-        _shadowCameras.clear(); _shadowNumber = osg::minimum(shadowNum, MAX_SHADOWS);
-        _invTextureSize = new osg::Uniform("InvShadowMapSize", osg::Vec2(1.0f / shadowSize, 1.0f / shadowSize));
-        for (int i = 0; i < _shadowNumber; ++i)
+                                                                osg::Shader* vs, osg::Shader* fs, unsigned int casterMask)
         {
-            _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
-#if defined(VERSE_EMBEDDED_GLES2)
-            // As WebGL requires, shadow map value should be encoded from float to RGBA8
-            // https://registry.khronos.org/webgl/specs/latest/1.0/#6.6
-            _shadowMaps[i]->setInternalFormat(GL_RGBA);
-            _shadowMaps[i]->setSourceFormat(GL_RGBA);
-            _shadowMaps[i]->setSourceType(GL_UNSIGNED_BYTE);
-#else
-            _shadowMaps[i]->setInternalFormat(GL_RGBA16F_ARB);
-            _shadowMaps[i]->setSourceFormat(GL_RGBA);
-            _shadowMaps[i]->setSourceType(GL_HALF_FLOAT);
-#endif
-            _shadowMaps[i]->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-            _shadowMaps[i]->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-            _shadowMaps[i]->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
-            _shadowMaps[i]->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
-            _shadowMaps[i]->setBorderColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+            _shadowCameras.clear(); _shadowNumber = osg::minimum(shadowNum, MAX_SHADOWS);
+            _invTextureSize = new osg::Uniform("InvShadowMapSize", osg::Vec2(1.0f / shadowSize, 1.0f / shadowSize));
+            bool blur = isFilterable();
+
+            // The blur radius is a world-space value, so the kernel in cast-map texels grows with
+            // the shadow resolution while the visible softness does not. Running the separable
+            // blur at a reduced resolution is what keeps the tap count (and so the cost) bounded:
+            // each halving of the blur resolution costs 8x less (4x fewer output texels, and half
+            // the taps per axis, because one blur texel covers 2 cast texels). The combine pass
+            // upsamples the result with the LINEAR sampler it already uses on _filterableShadowMaps
+            // so the final shadow keeps a smooth gradient. blurSize is fixed here because these
+            // textures are created before the per-cascade texel sizes (and hence the actual tap
+            // counts) are known; _blurDownsample lets updateInDraw() convert the world radius into
+            // output texels. 1024 is the point where a 4096 map stops paying for resolution that
+            // the blur is about to remove anyway
+            _blurSize = shadowSize;
+            while (_blurSize > 1024) _blurSize /= 2;
+            _blurDownsample = osg::maximum(shadowSize / osg::maximum(_blurSize, 1), 1);
+            for (int i = 0; i < _shadowNumber; ++i)
+            {
+                _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
+    #if defined(VERSE_EMBEDDED_GLES2)
+                // As WebGL requires, shadow map value should be encoded from float to RGBA8
+                // https://registry.khronos.org/webgl/specs/latest/1.0/#6.6
+                _shadowMaps[i]->setInternalFormat(GL_RGBA);
+                _shadowMaps[i]->setSourceFormat(GL_RGBA);
+                _shadowMaps[i]->setSourceType(GL_UNSIGNED_BYTE);
+    #else
+                _shadowMaps[i]->setInternalFormat(GL_RGBA16F_ARB);
+                _shadowMaps[i]->setSourceFormat(GL_RGBA);
+                _shadowMaps[i]->setSourceType(GL_HALF_FLOAT);
+    #endif
+                _shadowMaps[i]->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                _shadowMaps[i]->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+                _shadowMaps[i]->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
+                _shadowMaps[i]->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
+                _shadowMaps[i]->setBorderColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
+                if (blur)
+                {
+                    // The filterable map must keep the same wrap/filter behavior as the cast map
+                    // because the combine shader reads it through the LINEAR sampler with the same
+                    // UV math; if blur is off, getFilterableTexture() returns _shadowMaps[i] instead
+                    _filterableShadowMaps[i] = new osg::Texture2D;
+                    _filterableShadowMaps[i]->setTextureSize(_blurSize, _blurSize);
+                    _filterableShadowMaps[i]->setInternalFormat(GL_RGBA16F_ARB);
+                    _filterableShadowMaps[i]->setSourceFormat(GL_RGBA);
+                    _filterableShadowMaps[i]->setSourceType(GL_HALF_FLOAT);
+                    _filterableShadowMaps[i]->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                    _filterableShadowMaps[i]->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+                    _filterableShadowMaps[i]->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
+                    _filterableShadowMaps[i]->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
+                    _filterableShadowMaps[i]->setBorderColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+                }
+            }
+
+            std::vector<Pipeline::Stage*> stages;
+            osg::ref_ptr<ScriptableProgram> prog = new ScriptableProgram;
+            prog->setName("ShadowCaster_PROGRAM");
+
+            int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
+            if (_pipeline.valid())
+            {
+                cxtVer = _pipeline->getContextTargetVersion();
+                glslVer = _pipeline->getGlslTargetVersion();
+            }
+
+            for (int i = 0; i < _shadowNumber; ++i)
+                    {
+                        Pipeline::Stage* stage = createShadowCaster(i, prog.get(), casterMask);
+                        applyTechniqueDefines(stage->getOrCreateStateSet());
+                        // The cast shader reads the same warp-exponent uniforms as the combine shader;
+                        // they are uploaded here so a single OSG stage list iteration uploads them
+                        // exactly once, no matter how many cascades are active
+                        if (_esmExponents.valid()) stage->getOrCreateStateSet()->addUniform(_esmExponents.get());
+                        if (_evsmExponents.valid()) stage->getOrCreateStateSet()->addUniform(_evsmExponents.get());
+                        stages.push_back(stage); if (_pipeline.valid()) _pipeline->addStage(stage);
+                    }
+
+            if (vs)
+            {
+                vs->setName("ShadowCaster_SHADER_VS"); prog->addShader(vs);
+                Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+            }
+
+            if (fs)
+            {
+                fs->setName("ShadowCaster_SHADER_FS"); prog->addShader(fs);
+                Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
+            }
+
+            // Separable blur chain: when VSM/EVSM is the active mode and the operator asked for a
+            // kernel, attach the per-cascade horizontal+vertical blur stages right after the cast
+            // stages. The intermediate textures are private to the chain (the combine shader only
+            // ever sees _filterableShadowMaps[i], which is the vertical pass output)
+            if (blur && vs && fs)
+            {
+                int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
+                if (_pipeline.valid())
+                {
+                    cxtVer = _pipeline->getContextTargetVersion();
+                    glslVer = _pipeline->getGlslTargetVersion();
+                }
+
+                // One shared program for all cascades: the shader is identical, only the uniforms
+                // (ShadowFilterAttribs and InvShadowMapSize) change between stages
+                osg::ref_ptr<osg::Shader> blurVS = osgDB::readShaderFile(
+                    osg::Shader::VERTEX, SHADER_DIR + "std_shadow_blur.vert.glsl");
+                osg::ref_ptr<osg::Shader> blurFS = osgDB::readShaderFile(
+                    osg::Shader::FRAGMENT, SHADER_DIR + "std_shadow_blur.frag.glsl");
+                if (blurVS.valid() && blurFS.valid())
+                {
+                    Pipeline::createShaderDefinitions(blurVS.get(), cxtVer, glslVer);
+                    Pipeline::createShaderDefinitions(blurFS.get(), cxtVer, glslVer);
+                    _blurProgram = new ScriptableProgram;
+                    _blurProgram->setName("ShadowBlur_PROGRAM");
+                    _blurProgram->addShader(blurVS.get());
+                    _blurProgram->addShader(blurFS.get());
+
+                    for (int i = 0; i < _shadowNumber; ++i)
+                    {
+                        // Per-cascade intermediate texture, at the reduced blur resolution. The
+                        // blur shader samples this with LINEAR so that the strided taps of the
+                        // vertical pass average the blur texels they land between; CLAMP_TO_EDGE
+                        // only matters as a safety net since the tap offsets never step outside
+                        // the texture by more than the truncated kernel's own extent
+                        osg::ref_ptr<osg::Texture2D> intermediate = new osg::Texture2D;
+                        intermediate->setTextureSize(_blurSize, _blurSize);
+                        intermediate->setInternalFormat(GL_RGBA16F_ARB);
+                        intermediate->setSourceFormat(GL_RGBA);
+                        intermediate->setSourceType(GL_HALF_FLOAT);
+                        intermediate->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                        intermediate->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+                        intermediate->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+                        intermediate->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+
+                        // Reserve a slot for this cascade's blur uniforms so updateInDraw() can
+                        // refresh them once per frame from the world-space radius. The H uniform
+                        // (direction flag = 1.0) and V uniform (direction flag = 0.0) get a
+                        // placeholder radius of 0.5 texels until the first frame's texel size
+                        // arrives; the first updateInDraw() always runs before any draw
+                        if ((size_t)i >= _blurAttribs.size()) _blurAttribs.resize(i + 1);
+                        BlurPair& pair = _blurAttribs[i];
+
+                        Pipeline::Stage* h = createShadowBlur(
+                            i, _shadowMaps[i].get(), intermediate.get(), true, &pair);
+                        Pipeline::Stage* v = createShadowBlur(
+                            i, intermediate.get(), _filterableShadowMaps[i].get(), false, &pair);
+                        if (h)
+                        {
+                            applyTechniqueDefines(h->getOrCreateStateSet());
+                            stages.push_back(h); if (_pipeline.valid()) _pipeline->addStage(h);
+                        }
+                        if (v)
+                        {
+                            applyTechniqueDefines(v->getOrCreateStateSet());
+                            stages.push_back(v); if (_pipeline.valid()) _pipeline->addStage(v);
+                        }
+                    }
+                }
+            }
+            return stages;
         }
 
-        std::vector<Pipeline::Stage*> stages;
-        osg::ref_ptr<ScriptableProgram> prog = new ScriptableProgram;
-        prog->setName("ShadowCaster_PROGRAM");
+        Pipeline::Stage* ShadowModule::createShadowBlur(int id, osg::Texture2D* srcMap,
+                                                            osg::Texture2D* dstMap, bool horizontal,
+                                                            BlurPair* pair)
+            {
+                if (!srcMap || !dstMap || !_blurProgram.valid()) return NULL;
 
-        int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
-        if (_pipeline.valid())
-        {
-            cxtVer = _pipeline->getContextTargetVersion();
-            glslVer = _pipeline->getGlslTargetVersion();
-        }
+                // One RTT camera per blur pass. The viewport is the destination (reduced) blur
+                // resolution so the full-screen quad covers every output texel exactly once; the
+                // ortho projection maps the [-1, 1] quad geometry to the texture.
+                // GL_FRONT + FRAME_BUFFER_OBJECT keeps the standard pipeline-style stage setup
+                // the cast stage also uses
+                osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+                camera->setDrawBuffer(GL_FRONT); camera->setReadBuffer(GL_FRONT);
+                camera->setAllowEventFocus(false);
+                camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+                camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+                camera->setClearMask(GL_COLOR_BUFFER_BIT);
+                camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+                camera->setRenderOrder(osg::Camera::PRE_RENDER);
+                camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
 
-        for (int i = 0; i < _shadowNumber; ++i)
-        {
-            Pipeline::Stage* stage = createShadowCaster(i, prog.get(), casterMask);
-            applyTechniqueDefines(stage->getOrCreateStateSet());
-            stages.push_back(stage); if (_pipeline.valid()) _pipeline->addStage(stage);
-        }
+                if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
+                camera->setViewport(0, 0, dstMap->getTextureWidth(), dstMap->getTextureHeight());
+                camera->attach(osg::Camera::COLOR_BUFFER0, dstMap);
 
-        if (vs)
-        {
-            vs->setName("ShadowCaster_SHADER_VS"); prog->addShader(vs);
-            Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
-        }
+                osg::ref_ptr<osg::Geode> quad = osgVerse::createScreenQuad(
+                    osg::Vec3(-1.0f, -1.0f, 0.0f), 2.0f, 2.0f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+                camera->addChild(quad.get());
 
-        if (fs)
-        {
-            fs->setName("ShadowCaster_SHADER_FS"); prog->addShader(fs);
-            Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
-        }
-        return stages;
-    }
+                // Build the stage before setting up the state set so the stage owns the camera first.
+                // Unlike the cast stages, a blur pass never renders the scene graph, so it is NOT an
+                // input stage: that flag makes the pipeline attach the main scene to this camera.
+                // And it deliberately carries no "PipelineCullMask" either, because the pipeline
+                // cull visitor drops every drawable whose mask does not intersect that value while
+                // the quad has no pipeline mask of its own. A zero mask here silently culls the
+                // quad, leaving the filterable map at the clear color, which the combine shader
+                // reads as "everything lit" (EVSM) or "everything shadowed" (VSM)
+                Pipeline::Stage* stage = new Pipeline::Stage;
+                stage->deferred = false; stage->inputStage = false;
+                stage->name = (horizontal ? "ShadowBlurH" : "ShadowBlurV") + std::to_string(id);
+                stage->camera = camera.get(); stage->camera->setName(stage->name);
+                stage->outputs[(horizontal ? "BlurH" : "BlurV") + std::to_string(id)] = dstMap;
+                stage->overridedPrograms = true;
+                stage->parentModule = this;
+
+                // The blur shader runs without depth test or face culling; both are forced off to
+                        // keep the output identical regardless of the host OSG state
+                        osg::StateSet* ss = stage->getOrCreateStateSet();
+                        ss->setAttributeAndModes(_blurProgram.get(),
+                            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+                        ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+                        ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+                        ss->setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+                // Per-pass uniforms: the source map is bound to "ShadowMap"; the half-width in texels
+                // goes in ShadowFilterAttribs.x; InvShadowMapSize tells the shader how big one texel
+                // is in UV space (the same uniform the cast pass uses, so the scale matches)
+                // ShadowFilterAttribs.x is the *continuous* kernel radius in shadow-map texels, not the
+                // tap count: GetSampleWeight() in std_shadow_blur.frag.glsl integrates the kernel
+                // over each tap's [i, i + 1] footprint, so a radius of R integrates to exactly
+                // 2*R+1 unit weights for an integer number of taps. The value here is just a
+                // placeholder (0.5 texel) -- updateInDraw() rewrites it every frame from the
+                // world-space radius divided by the per-cascade texel size, so the blur is
+                // resolution-independent and visually meaningful at any shadow resolution.
+                // .y selects the blur direction (1 = horizontal, 0 = vertical) and is fixed at
+                // creation; only .x is animated
+                osg::ref_ptr<osg::Uniform> halfWidthU = new osg::Uniform(
+                    "ShadowFilterAttribs", osg::Vec4(0.5f, horizontal ? 1.0f : 0.0f, 0.0f, 0.0f));
+                ss->addUniform(halfWidthU.get());
+                if (pair != NULL)
+                {
+                    if (horizontal) pair->attribsH = halfWidthU;
+                    else            pair->attribsV = halfWidthU;
+                }
+
+                // The blur pass needs its own InvShadowMapSize: the shared _invTextureSize holds
+                // one *cast* texel, but the taps here move in *blur* texels, which are
+                // _blurDownsample times larger. Same uniform name, separate StateSet, so the cast
+                // and combine passes keep the cast-map value they need
+                ss->addUniform(new osg::Uniform("InvShadowMapSize",
+                    osg::Vec2(1.0f / dstMap->getTextureWidth(), 1.0f / dstMap->getTextureHeight())));
+
+                // Bind the source map under the "ShadowMap" name on a per-stage unit that does not
+                // collide with the cast / combine stages
+                int texUnit = 6 + id;
+                ss->setTextureAttribute(texUnit, srcMap, osg::StateAttribute::ON);
+                osg::ref_ptr<osg::Uniform> srcU = new osg::Uniform("ShadowMap", texUnit);
+                ss->addUniform(srcU.get());
+
+                // The blur direction travels in ShadowFilterAttribs.y rather than in a per-stage
+                // #define, so both passes reuse the same compiled program; the only per-stage
+                // state is the source texture, the direction and the target framebuffer
+                return stage;
+            }
 
     void ShadowModule::addReferencePoints(const std::vector<osg::Vec3d>& pt, bool toReset)
     {
@@ -338,10 +562,15 @@ namespace osgVerse
     int ShadowModule::applyTextureAndUniforms(Pipeline::Stage* stage, const std::string& prefix, int startU)
     {
         int unit = startU;
+        // Bind the filterable texture when the blur chain is active, otherwise the cast output.
+        // The names are "ShadowMap{0..3}" on both sides, so the combine shader never has to know
+        // whether it reads the cast directly or the blurred version
         for (int i = 0; i < _shadowNumber; ++i)
         {
             std::string name = prefix + std::to_string(i);
-            stage->applyTexture(_shadowMaps[i].get(), name, unit++);
+            osg::Texture2D* sampled = (_filterableShadowMaps[i].valid())
+                                      ? _filterableShadowMaps[i].get() : _shadowMaps[i].get();
+            stage->applyTexture(sampled, name, unit++);
         }
         stage->applyUniform(getLightMatrices());
         stage->applyUniform(_invTextureSize.get());
@@ -353,6 +582,8 @@ namespace osgVerse
         stage->applyUniform(_planeBiasParams.get());
         stage->applyUniform(_mainLightDir.get());
         stage->applyUniform(_contactShadow.get());
+        stage->applyUniform(_esmExponents.get());
+        stage->applyUniform(_evsmExponents.get());
         return unit;
     }
 
@@ -495,18 +726,8 @@ namespace osgVerse
             double zFar = osg::maximum(-shadowBB.zMin(), zNearTotal + 0.001);
             shadowCam->setViewMatrix(_lightMatrix);
             shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax, zNearTotal, zFar);
-            if (_technique == EyeSpaceDepthSM)
-            {
-                osg::Matrix proj = shadowCam->getProjectionMatrix(), projKeepZ;
-                //projKeepZ(2, 2) = proj(0, 0); projKeepZ(1, 1) = proj(1, 1);  // consider perspective
-                projKeepZ = proj; projKeepZ(2, 2) = 1.0f; projKeepZ(3, 2) = 0.0f;  // consider ortho
-                _lightMatrices->setElement(i, osg::Matrixf(viewInv * shadowCam->getViewMatrix() * projKeepZ));
-            }
-            else
-            {
-                _lightMatrices->setElement(i, osg::Matrixf(viewInv *
-                    shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
-            }
+            _lightMatrices->setElement(i, osg::Matrixf(viewInv *
+                shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
 
             ShadowData* sData = static_cast<ShadowData*>(shadowCam->getUserData());
             if (sData != NULL)
@@ -522,14 +743,51 @@ namespace osgVerse
             if (i < 4)
             {
                 double depthRange = osg::maximum(zFar - zNearTotal, 1e-6);
-                biasScales[i] = (float)((_technique == EyeSpaceDepthSM) ?
-                    cascadeTexelSize : (2.0 * cascadeTexelSize / depthRange));
+                biasScales[i] = (float)(2.0 * cascadeTexelSize / depthRange);
                 texelSizes[i] = (float)cascadeTexelSize;
             }
         }
         _biasScales->set(osg::Vec4(biasScales[0], biasScales[1], biasScales[2], biasScales[3]));
         _texelSizes->set(osg::Vec4(texelSizes[0], texelSizes[1], texelSizes[2], texelSizes[3]));
         _lightMatrices->dirty();
+
+        // Convert the world-space blur radius into a radius in *blur-map* texels for each cascade,
+        // so a single world-space value stays visually meaningful regardless of the shadow map
+        // resolution. texelSizes[i] is world-units-per-cast-texel, so:
+        //     castTexelRadius = worldRadius / texelSizes[i]
+        //     blurTexelRadius = castTexelRadius / _blurDownsample
+        // The tap count is what costs, and it grows without bound on a large world with a fine
+        // shadow map (a 4096 map has ~0.008 units/texel, so a 1-unit radius alone is 128 texels =
+        // 257 taps), so the radius is clamped to keep the loop bounded. Anything wider than this
+        // has to come from a coarser map instead of a longer kernel: lower shadowResolution
+        if (_shadowFilterSize > 0.0f && !_blurAttribs.empty())
+        {
+            const float maxTapRadius = 64.0f;  // 129 taps x 2 passes; see the notice below
+            for (size_t i = 0; i < numCameras && i < _blurAttribs.size(); ++i)
+            {
+                float texelRadius = _shadowFilterSize / osg::maximum(texelSizes[i], 1e-6f) /
+                                    (float)_blurDownsample;
+                if (texelRadius < 0.5f) texelRadius = 0.5f;
+                if (texelRadius > maxTapRadius)
+                {
+                    texelRadius = maxTapRadius;
+                    if (!_blurClamped)
+                    {
+                        _blurClamped = true;
+                        OSG_NOTICE << "[ShadowModule] Blur radius clamped to " << maxTapRadius
+                                   << " texels of the " << _blurSize << "px blur map (requested "
+                                   << _shadowFilterSize << " world units = "
+                                   << (_shadowFilterSize / osg::maximum(texelSizes[i], 1e-6f))
+                                   << " cast texels). Lower shadowResolution for a wider penumbra at "
+                                   << "the same cost" << std::endl;
+                    }
+                }
+                BlurPair& pair = _blurAttribs[i];
+                if (pair.attribsH.valid()) pair.attribsH->set(osg::Vec4(texelRadius, 1.0f, 0.0f, 0.0f));
+                if (pair.attribsV.valid()) pair.attribsV->set(osg::Vec4(texelRadius, 0.0f, 0.0f, 0.0f));
+
+            }
+        }
 
         // One texel of a shadow map is a length in world space, and it is what decides both how
         // sharp the shadows can be and how much a receiver-side bias (see setShadowBias()) costs.
