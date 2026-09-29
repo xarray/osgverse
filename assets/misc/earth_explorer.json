@@ -1,0 +1,93 @@
+{
+    "//": "EarthExplorer 统一配置文件。缺失任何字段都只是降级 + 控制台告警,程序照常运行。注意 URL 中的 '=' 必须写成 %3d(选项串按空格切分)。",
+    "globe": {
+        "orthophoto": "https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z}",
+        "elevation": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png.verse_terrain",
+        "ocean_mask": "",
+        "skirt_ratio": 0.05,
+        "elevation_scale": 1.0,
+        "web_mercator": true,
+        "origin_bottom_left": false
+    },
+    "city": {
+        "enabled": false,
+        "folder": ""
+    },
+    "ui": {
+        "font": ""
+    },
+    "api_keys": {
+        "//": "需要凭证的数据源在此填 key;环境变量(如 EARTH_FIRMS_KEY)优先级更高",
+        "firms": "",
+        "deepseek": "",
+        "gemini": ""
+    },
+    "ai": {
+        "//": "AI 助手(多供应商)。enabled=false 彻底关闭;缺 key 的供应商自动禁用。type 支持 openai_compatible(DeepSeek/通义/GLM/Kimi 等,换 base_url+model 即可)/ gemini / fake(离线回放)",
+        "enabled": true,
+        "active": "deepseek",
+        "max_rounds": 30,
+        "system_prompt": "",
+        "providers": {
+            "deepseek": {
+                "type": "openai_compatible",
+                "base_url": "https://api.deepseek.com/v1",
+                "model": "deepseek-chat",
+                "key_env": "EARTH_DEEPSEEK_KEY",
+                "key_config": "deepseek",
+                "timeout_seconds": 60
+            },
+            "gemini": {
+                "type": "gemini",
+                "model": "gemini-2.5-flash",
+                "key_env": "EARTH_GEMINI_KEY",
+                "key_config": "gemini",
+                "timeout_seconds": 60
+            }
+        }
+    },
+    "data_sources": [
+        {
+            "id": "gdacs",
+            "type": "gdacs",
+            "name": "灾害预警 (GDACS)",
+            "group": "实时数据 / Live",
+            "subtitle": "GDACS · UN 全球灾害预警",
+            "url": "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP",
+            "refresh_seconds": 600,
+            "timeout_seconds": 15,
+            "lift_meters": 3000,
+            "enabled": false,
+            "key_env": "",
+            "key_config": ""
+        },
+        {
+            "id": "quakes",
+            "type": "usgs",
+            "name": "地震 (USGS)",
+            "group": "实时数据 / Live",
+            "subtitle": "USGS · 近24小时 M2.5+ 地震",
+            "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson",
+            "refresh_seconds": 300,
+            "timeout_seconds": 15,
+            "lift_meters": 3000,
+            "enabled": false,
+            "key_env": "",
+            "key_config": ""
+        },
+        {
+            "id": "eonet",
+            "type": "eonet",
+            "name": "自然事件 (NASA EONET)",
+            "group": "实时数据 / Live",
+            "subtitle": "NASA EONET · 活跃自然事件",
+            "url": "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=200",
+            "refresh_seconds": 900,
+            "timeout_seconds": 15,
+            "lift_meters": 3000,
+            "enabled": false,
+            "key_env": "",
+            "key_config": ""
+        }
+    ]
+}

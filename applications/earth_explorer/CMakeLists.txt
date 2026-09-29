@@ -1,9 +1,11 @@
 SET(EXE_NAME osgVerse_EarthExplorer)
 SET(EXECUTABLE_FILES
-    earth_main.cpp ui.cpp render_effects.cpp
+    earth_main.cpp earth_ui.cpp EarthAppConfig.cpp DataSource.cpp feed_sources.cpp
+    ai_chat.h ai_chat.cpp ai_setup.h ai_setup.cpp
+    marker_style.h marker_style.cpp render_effects.cpp
     city_data.cpp ReaderWriterCSV.cpp
 )
-
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/3rdparty/imgui)
 NEW_EXECUTABLE(${EXE_NAME} SHARED)
 SET_PROPERTY(TARGET ${EXE_NAME} PROPERTY FOLDER "APPLICATIONS")
 TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseReaderWriter osgVerseAnimation osgVersePipeline
@@ -11,6 +13,10 @@ TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseReaderWriter osgVerseAnimation osgVers
                       osgVerseDependency ${EXTERNAL_LIBRARIES})
 LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
 TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
+IF(MSVC)
+    # 源码为 UTF-8(无 BOM,含中文注释/字面量),必须显式告知 MSVC
+    TARGET_COMPILE_OPTIONS(${EXE_NAME} PRIVATE /utf-8)
+ENDIF()
 
 USE_MSVC_DEBUGGER(${EXE_NAME} "${THIRDPARTY_ROOT}/bin;${OSG_BUILD_INCLUDE_DIR}/../bin")
 IF(MSVC AND VERSE_INSTALL_PDB_FILES)

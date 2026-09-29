@@ -302,5 +302,16 @@ int main(int argc, char** argv)
     g_data.view->getCameraManipulator()->home(0.0);
 
     editorCore->getHierarchyData()->addItem(NULL, g_data.sceneRoot.get());
-    return viewer.run();
+    int result = viewer.run();
+
+    // Explicit teardown while the viewer (and its GL context) is still alive:
+    // make sure all rendering threads have joined (the ImGui PRE/POST_DRAW
+    // callbacks run in the drawing thread and must not race the cleanup),
+    // then shutdown ImGui first (idempotent), then release the scene graph
+    // before the static singletons (TileManager, LightGlobalManager...)
+    // get destructed
+    viewer.stopThreading();
+    imgui->shutdown();
+    viewer.setSceneData(NULL);
+    return result;
 }

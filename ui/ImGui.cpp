@@ -182,19 +182,24 @@ namespace
     public:
         std::map<std::string, ImFont*> _fonts;
         ImGuiInputQueue _input;
-        ImGuiHandler() : _started(false) {}
+        ImGuiHandler() : _started(false), _released(false) {}
 
         void start(ImGuiManager* manager)
         { if (!_started) startImGuiContext(manager, _fonts); _started = true; }
 
         void release(ImGuiManager* manager)
         {
-    #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+            // Must be idempotent: OSG may trigger releaseGLObjects() on the camera
+            // more than once (per-context teardown + manager shutdown), and a second
+            // ImGui_ImplOpenGL3_Shutdown() dereferences a deleted backend (crash).
+            if (_released || !_started) return;
+            _released = true;
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
             ImGui_ImplOpenGL3_Shutdown();
-    #else
+#else
             if (s_useImguiLoaderGL3) ImGui_ImplOpenGL3_Shutdown();
             else ImGui_ImplOpenGL2_Shutdown();
-    #endif
+#endif
         }
 
         void drain(ImGuiIO& io)
@@ -237,8 +242,15 @@ namespace
         }
 
     protected:
-        virtual ~ImGuiHandler() { ImGui::DestroyContext(); }
+        virtual ~ImGuiHandler()
+        {
+            // Shut the render backend down before destroying the context, otherwise
+            // ImGui::Shutdown() asserts ("Forgot to shutdown Renderer backend?")
+            release(NULL);
+            ImGui::DestroyContext();
+        }
         bool _started;
+        bool _released;
     };
 
     struct ImGuiNewFrameCallback : public CameraDrawCallback
@@ -261,16 +273,20 @@ namespace
         ImGuiRenderCallback(ImGuiManager* m, osgGA::GUIEventHandler* h) : _handler(h), _manager(m) {}
         mutable std::map<std::string, ImTextureID> _textureIdList;
         osg::observer_ptr<osgGA::GUIEventHandler> _handler;
-        ImGuiManager* _manager;
+        // The manager may be destroyed before the viewer (declaration order in callers'
+        // main()), while this callback can still be invoked during viewer teardown
+        osg::observer_ptr<ImGuiManager> _manager;
 
         virtual void operator()(osg::RenderInfo& renderInfo) const override
         {
-            endImGuiFrame(renderInfo, _manager, _textureIdList,
+            ImGuiManager* manager = _manager.get();
+            if (manager == NULL) return;
+            endImGuiFrame(renderInfo, manager, _textureIdList,
                         [&](ImGuiContentHandler* v, ImGuiContext* context) {
                 ImGuiHandler* handler = static_cast<ImGuiHandler*>(_handler.get());
                 if (handler) v->ImGuiFonts = handler->_fonts;
                 v->ImGuiTextures = _textureIdList; v->context = context;
-                v->runInternal(_manager);
+                v->runInternal(manager);
             });
 
             ImGuiHandler* handler = static_cast<ImGuiHandler*>(_handler.get());
@@ -280,7 +296,7 @@ namespace
         virtual void releaseGLObjects(osg::State* state) const
         {
             ImGuiHandler* handler = static_cast<ImGuiHandler*>(_handler.get());
-            if (handler) handler->release(_manager);
+            if (handler) handler->release(_manager.get());
         }
     };
 }
