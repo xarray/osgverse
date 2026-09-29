@@ -6,6 +6,7 @@
 #include <osgDB/FileUtils>
 #include <osgDB/FileCache>
 #include <algorithm>
+#include <mutex>
 
 #include "3rdparty/libhv/all/client/requests.h"
 #include <readerwriter/Utilities.h>
@@ -256,8 +257,11 @@ public:
             OSG_WARN << "[ReaderWriterWeb] Encoding method " << encoding << " not supported" << std::endl;
         }
 
-        // Load by other readerwriter
-        osgDB::ReaderWriter* reader = getReaderWriter(ext, true);
+        // Load by other readerwriter. An explicit pseudo-extension (e.g. "xxx.png.verse_terrain")
+        // selects the plugin to parse the downloaded content, taking priority over the inner
+        // extension reader (which would otherwise always claim common types like ".png").
+        osgDB::ReaderWriter* reader = ext2.empty() ? NULL : getReaderWriter(ext2, true);
+        if (!reader) reader = getReaderWriter(ext, true);
         lOptions->getDatabasePathList().push_front(osgDB::getFilePath(fileName));
         if (!reader && options)
         {
@@ -353,6 +357,8 @@ protected:
     osgDB::ReaderWriter* getReaderWriter(const std::string& extOrMime, bool isExt) const
     {
         if (extOrMime.empty()) return NULL;
+        std::lock_guard<std::mutex> lock(_cachedRWMutex);  // Parallel tile loading may call this concurrently
+        
         std::map<std::string, std::string>::const_iterator m = isExt ? _mimeTypes.end() : _mimeTypes.find(extOrMime);
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::const_iterator
             it = _cachedReaderWriters.find(extOrMime);
@@ -365,6 +371,7 @@ protected:
     }
 
     std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
+    mutable std::mutex _cachedRWMutex;  // Protects _cachedReaderWriters (accessed in const methods)
     std::map<std::string, std::string> _mimeTypes;
 };
 

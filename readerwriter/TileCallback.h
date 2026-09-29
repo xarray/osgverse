@@ -5,6 +5,7 @@
 #include <osg/Geometry>
 #include <osgDB/ReaderWriter>
 #include <functional>
+#include <mutex>
 #include <set>
 #include "Export.h"
 
@@ -188,6 +189,7 @@ namespace osgVerse
         std::map<int, std::string> _layerPaths;
         std::map<std::string, std::string> _acceptHandlerExts;
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
+        std::mutex _cachedRWMutex;  // Protects _cachedReaderWriters (used by pager threads)
         osg::ref_ptr<DynamicTileCallback> _dynamicCallback;
         osg::ref_ptr<osgDB::Options> _options;
     };

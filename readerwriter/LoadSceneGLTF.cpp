@@ -25,6 +25,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "LoadSceneGLTF.h"
 #include "Utilities.h"
+#include "SafeGltfInput.h"
 #include <regex>
 
 #include <picojson.h>
@@ -126,22 +127,59 @@ namespace
 
         bool read(const std::string& fileName, std::vector<unsigned char>& data)
         {
+            data.clear();
     #ifdef __EMSCRIPTEN__
             osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
             bool succeed = wf->httpGet(fileName);
             if (!succeed) return false;
-            else data.assign(wf->buffer.begin(), wf->buffer.end());
+            else if (!osgVerse::appendRemoteChunk(data, wf->buffer.data(), wf->buffer.size(),
+                                                  osgVerse::MAX_REMOTE_GLTF_RESOURCE_BYTES))
+            { data.clear(); return false; }
     #else
             HttpRequest req;
             req.method = HTTP_GET; req.url = fileName;
             req.scheme = osgDB::getServerProtocol(fileName);
 
             HttpResponse response;
+            bool tooLarge = false;
+            req.http_cb = [&](HttpMessage* message, http_parser_state state,
+                              const char* bytes, size_t size)
+            {
+                if (state == HP_HEADERS_COMPLETE)
+                {
+                    http_headers::const_iterator itr = message->headers.find("Content-Length");
+                    size_t declared = 0;
+                    if (itr != message->headers.end() && osgVerse::parseContentLength(itr->second, declared) &&
+                        declared > osgVerse::MAX_REMOTE_GLTF_RESOURCE_BYTES)
+                        tooLarge = true;
+                }
+                else if (state == HP_BODY && !tooLarge &&
+                         !osgVerse::appendRemoteChunk(data, bytes, size,
+                                                      osgVerse::MAX_REMOTE_GLTF_RESOURCE_BYTES))
+                    tooLarge = true;
+            };
             int result = _client->send(&req, &response);
-            if (result != 0) return false;
-            data.assign(response.body.begin(), response.body.end());
+            if (result != 0 || tooLarge || response.status_code < 200 || response.status_code >= 300)
+            { data.clear(); return false; }
     #endif
             return true;
+        }
+
+        bool size(const std::string& fileName, size_t& size)
+        {
+            size = 0;
+#ifdef __EMSCRIPTEN__
+            return false;
+#else
+            HttpRequest req;
+            req.method = HTTP_HEAD; req.url = fileName;
+            req.scheme = osgDB::getServerProtocol(fileName);
+            HttpResponse response;
+            if (_client->send(&req, &response) != 0 || response.status_code < 200 || response.status_code >= 300)
+                return false;
+            http_headers::const_iterator itr = response.headers.find("Content-Length");
+            return itr != response.headers.end() && osgVerse::parseContentLength(itr->second, size);
+#endif
         }
 
     protected:
@@ -216,12 +254,27 @@ namespace osgVerse
     static bool GetFileSizeInBytes(size_t* filesize_out, std::string* err,
                                    const std::string& filepath, void* userData)
     {
+        if (!filesize_out) return false;
+        *filesize_out = 0;
         osgDB::ReaderWriter* rw = (osgDB::ReaderWriter*)userData;
-        if (rw) { filesize_out = 0; return true; }
+        if (rw)
+        {
+            size_t remoteSize = 0;
+            if (HttpRequester::instance()->size(filepath, remoteSize))
+            {
+                if (remoteSize > osgVerse::MAX_REMOTE_GLTF_RESOURCE_BYTES)
+                {
+                    if (err) (*err) += "Remote glTF resource exceeds 64 MiB: " + filepath + "\n";
+                    return false;
+                }
+                *filesize_out = remoteSize;
+            }
+            return true;
+        }
         return tinygltf::GetFileSizeInBytes(filesize_out, err, filepath, userData);
     }
 
-    static osg::Vec3d ReadRtcCenterFeatureTable(std::vector<char>& data, int offset, int size)
+    static osg::Vec3d ReadRtcCenterFeatureTable(const std::vector<char>& data, size_t offset, size_t size)
     {
         std::string json; json.assign(data.begin() + offset, data.begin() + size + offset);
         picojson::value root; std::string err = picojson::parse(root, json);
@@ -236,29 +289,6 @@ namespace osgVerse
             }
         }
         return osg::Vec3d();
-    }
-
-    unsigned int ReadB3dmHeader(std::vector<char>& data, osg::Vec3d* rtcCenter = NULL)
-    {
-        // https://github.com/CesiumGS/3d-tiles/blob/main/specification/TileFormats/Batched3DModel/README.adoc#tileformats-batched3dmodel-batched-3d-model
-        // magic(h0) + version(h1) + length(h2) + featureTableJsonLength(h3) + featureTableBinLength(h4) +
-        // batchTableJsonLength(h5) + batchTableBinLength(h6) + <Real feature table> + <Real batch table> + GLTF body
-        int header[7], hSize = 7 * sizeof(int); memcpy(header, data.data(), hSize);
-        if (rtcCenter && header[3] > 0) *rtcCenter = ReadRtcCenterFeatureTable(data, hSize, header[3]);
-
-        int extraSize = header[3] + header[4] + header[5] + header[6];
-        if (hSize + extraSize >= header[2]) extraSize = 0;  // unexpected behaviour
-        return hSize + extraSize;
-    }
-
-    unsigned int ReadI3dmHeader(std::vector<char>& data, unsigned int& format)
-    {
-        // https://github.com/CesiumGS/3d-tiles/blob/main/specification/TileFormats/Instanced3DModel/README.adoc#tileformats-instanced3dmodel-instanced-3d-model
-        // magic(h0) + version(h1) + length(h2) + featureTableJsonLength(h3) + featureTableBinLength(h4) +
-        // batchTableJsonLength(h5) + batchTableBinLength(h6) + gltfFormat(h7) +
-        // <Real feature table> + <Real batch table> + GLTF body
-        int header[8]; memcpy(header, data.data(), 8 * sizeof(int)); format = header[7];
-        return 8 * sizeof(int) + header[3] + header[4] + header[5] + header[6];
     }
 
     bool LoadImageDataEx(tinygltf::Image* image, const int image_idx, std::string* err,
@@ -398,30 +428,57 @@ namespace osgVerse
         loader.SetStoreOriginalJSONForExtrasAndExtensions(true);
         loader.SetImageLoader(&LoadImageDataEx, this);
         loader.SetFsCallbacks(fs, &err);
+        loader.SetMaxExternalFileSize(MAX_REMOTE_GLTF_RESOURCE_BYTES);
         if (!err.empty()) OSG_WARN << "[LoaderGLTF] SetFsCallbacks: " << err << std::endl;
 
         if (isBinary)
         {
-            unsigned int version = 2, offset = 0, format = 0;  // 0: url, 1: raw GLTF
+            unsigned int version = 2, offset = 0;  // 0: url, 1: raw GLTF
+            size_t binarySize = data.size();
             std::string externalFileURI;
-            if (data.size() > 4)
+            if (data.size() >= 4)
             {
-                if (data[0] == 'b' && data[1] == '3' && data[2] == 'd' && data[3] == 'm')
+                const bool isB3dm = data[0] == 'b' && data[1] == '3' && data[2] == 'd' && data[3] == 'm';
+                const bool isI3dm = data[0] == 'i' && data[1] == '3' && data[2] == 'd' && data[3] == 'm';
+                if (isB3dm || isI3dm)
                 {
-                    offset = ReadB3dmHeader(data, &rtcCenter); _3dtilesFormat = true;
-                    memcpy(&version, &data[0] + offset + 4, 4); tinygltf::swap4(&version);
-                }
-                else if (data[0] == 'i' && data[1] == '3' && data[2] == 'd' && data[3] == 'm')
-                {
-                    offset = ReadI3dmHeader(data, format); _3dtilesFormat = true;
-                    if (format == 0)
+                    ThreeDTileHeader tileHeader;
+                    if (!parseThreeDTileHeader(data, tileHeader, &err))
+                    { OSG_WARN << "[LoaderGLTF] Invalid 3D Tiles payload: " << err << std::endl; return; }
+                    offset = static_cast<unsigned int>(tileHeader.payloadOffset);
+                    binarySize = tileHeader.payloadSize; _3dtilesFormat = true;
+                    if (tileHeader.featureJsonLength > 0)
+                        rtcCenter = ReadRtcCenterFeatureTable(data, tileHeader.featureJsonOffset,
+                                                              tileHeader.featureJsonLength);
+                    if (tileHeader.gltfFormat == 0)
                     {
-                        std::vector<char> uri(data.size() - offset);
-                        memcpy(&uri[0], &data[0] + offset, uri.size()); char* p = &uri[0];
-                        externalFileURI = std::string(p, p + uri.size());
+                        externalFileURI.assign(data.begin() + tileHeader.payloadOffset,
+                                               data.begin() + tileHeader.payloadOffset + tileHeader.payloadSize);
+                        const size_t nul = externalFileURI.find('\0');
+                        if (nul != std::string::npos) externalFileURI.resize(nul);
+                        externalFileURI = trimString(externalFileURI);
+                        if (externalFileURI.empty())
+                        { OSG_WARN << "[LoaderGLTF] Empty i3dm external glTF URI" << std::endl; return; }
                     }
                     else
-                        { memcpy(&version, &data[0] + offset + 4, 4); tinygltf::swap4(&version); }
+                    {
+                        if (data[offset] != 'g' || data[offset + 1] != 'l' ||
+                            data[offset + 2] != 'T' || data[offset + 3] != 'F')
+                        { OSG_WARN << "[LoaderGLTF] Invalid embedded GLB magic" << std::endl; return; }
+                        version = static_cast<unsigned int>(static_cast<unsigned char>(data[offset + 4])) |
+                                  (static_cast<unsigned int>(static_cast<unsigned char>(data[offset + 5])) << 8) |
+                                  (static_cast<unsigned int>(static_cast<unsigned char>(data[offset + 6])) << 16) |
+                                  (static_cast<unsigned int>(static_cast<unsigned char>(data[offset + 7])) << 24);
+                    }
+                }
+                else if (data[0] == 'g' && data[1] == 'l' && data[2] == 'T' && data[3] == 'F')
+                {
+                    if (data.size() < 12)
+                    { OSG_WARN << "[LoaderGLTF] Truncated GLB header" << std::endl; return; }
+                    version = static_cast<unsigned int>(static_cast<unsigned char>(data[4])) |
+                              (static_cast<unsigned int>(static_cast<unsigned char>(data[5])) << 8) |
+                              (static_cast<unsigned int>(static_cast<unsigned char>(data[6])) << 16) |
+                              (static_cast<unsigned int>(static_cast<unsigned char>(data[7])) << 24);
                 }
             }
 
@@ -435,9 +492,14 @@ namespace osgVerse
             else if (version >= 2)
             {
                 loaded = loader.LoadBinaryFromMemory(
-                    &_modelDef, &err, &warn, (unsigned char*)&data[0] + offset, data.size() - offset, d);
+                    &_modelDef, &err, &warn, (unsigned char*)&data[0] + offset, binarySize, d);
             }
-            else loaded = LoadBinaryV1(data, d);
+            else if (offset == 0) loaded = LoadBinaryV1(data, d);
+            else
+            {
+                std::vector<char> payload(data.begin() + offset, data.begin() + offset + binarySize);
+                loaded = LoadBinaryV1(payload, d);
+            }
         }
         else
             loaded = loader.LoadASCIIFromString(&_modelDef, &err, &warn, &data[0], data.size(), d);

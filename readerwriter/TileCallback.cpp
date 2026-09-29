@@ -89,12 +89,16 @@ std::pair<osg::Geometry*, TileCallback*> TileCallback::findParentTile(osg::Group
 osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath, const osgDB::Options* opt,
                                              osg::NodeVisitor::ImageRequestHandler* irh)
 {
-    std::string inputAddr = _layerPaths[(int)id].first;
+    std::map<int, DataPathPair>::const_iterator _lpit = _layerPaths.find((int)id);
+    std::string inputAddr = (_lpit != _layerPaths.end()) ? _lpit->second.first : std::string();
     emptyPath = (inputAddr.empty()); if (emptyPath) return NULL;
 
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
-    std::string protocol = osgDB::getServerProtocol(url); if (url.empty()) return NULL;
+    // A path function returning "" means an intentional empty path (e.g. a per-zoom
+    // cutoff), which is NOT a load failure: mark emptyPath so callers skip the
+    // fail-state and use the no-layer path instead.
+    std::string protocol = osgDB::getServerProtocol(url); if (url.empty()) { emptyPath = true; return NULL; }
 
     osg::ref_ptr<osg::Texture2D> tex2D = createTexture2D(NULL, osg::Texture::CLAMP_TO_EDGE);
 #if OSG_MIN_VERSION_REQUIRED(3, 1, 5)
@@ -113,12 +117,14 @@ osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath, cons
 
 TileGeometryHandler* TileCallback::createLayerHandler(LayerType id, bool& emptyPath, const osgDB::Options* opt)
 {
-    std::string inputAddr = _layerPaths[(int)id].first;
+    std::map<int, DataPathPair>::const_iterator _lpit = _layerPaths.find((int)id);
+    std::string inputAddr = (_lpit != _layerPaths.end()) ? _lpit->second.first : std::string();
     emptyPath = (inputAddr.empty()); if (emptyPath) return NULL;
 
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
-    std::string protocol = osgDB::getServerProtocol(url); if (url.empty()) return NULL;
+    // Same as createLayerImage(): an intentionally empty path is not a load failure
+    std::string protocol = osgDB::getServerProtocol(url); if (url.empty()) { emptyPath = true; return NULL; }
 
     osgDB::ReaderWriter* rw = TileManager::instance()->getReaderWriter(protocol, url);
     return rw ? dynamic_cast<TileGeometryHandler*>(rw->readObject(url, opt).takeObject()) : NULL;
@@ -676,6 +682,7 @@ TileManager* TileManager::instance()
 TileManager::TileManager()
 {
     _acceptHandlerExts[".terrain"] = ".terrain.verse_terrain";
+    _acceptHandlerExts[".terrarium"] = ".terrarium.verse_terrain";
     _acceptHandlerExts[".verse_terrain"] = "";
 }
 
@@ -686,7 +693,7 @@ bool TileManager::check(const std::map<int, TileCallback::DataPathPair>& paths, 
     {
         std::map<int, TileCallback::DataPathPair>::const_iterator it2 = paths.find(it->first);
         if (it2 == paths.end() && !it->second.empty()) updated.push_back(it->first);
-        else if (it2->second.first != it->second) updated.push_back(it->first);
+        else if (it2 != paths.end() && it2->second.first != it->second) updated.push_back(it->first);
     }
     return !updated.empty();
 }
@@ -699,6 +706,7 @@ bool TileManager::isHandlerExtension(const std::string& ext, std::string& sugges
 
 osgDB::ReaderWriter* TileManager::getReaderWriter(const std::string& protocol, const std::string& url)
 {
+    std::lock_guard<std::mutex> lock(_cachedRWMutex);
     std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::iterator it = _cachedReaderWriters.find(protocol);
     if (it != _cachedReaderWriters.end()) return it->second.get();
     std::string ext = osgDB::getFileExtension(url); it = _cachedReaderWriters.find(ext);
@@ -730,6 +738,7 @@ void TileManager::updateTileGeometry(TileCallback& tileCB, osg::Geometry* geom)
     if (!_dynamicCallback->updateEntireTileGeometry(tileCB, geom))
     {
         osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
+        if (!va || va->size() < TILE_ROWS * TILE_COLS) return;
         osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(GLOBE_ATTRIBUTE_INDEX));
         osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
         tileCB.computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);

@@ -19,6 +19,8 @@
 #include <sstream>
 #include <iomanip>
 #include <cctype>
+#include <map>
+#include <memory>
 
 #include "pipeline/Global.h"
 #include "pipeline/Utilities.h"
@@ -527,8 +529,25 @@ namespace osgVerse
                 req.headers[reqHeaders[i + 0]] = reqHeaders[i + 1];
             }
 
-            HttpResponse response; hv::HttpClient client;
-            int result = client.send(&req, &response);
+            // Bound the per-fetch time: a stuck tile fetch would otherwise block a pager
+            // HTTP thread for up to libhv's default 60s and starve deeper-LOD loading.
+            req.SetConnectTimeout(8);
+            req.SetTimeout(15);
+
+            // Keep one persistent HttpClient per (thread, host) so the TCP+TLS connection is
+            // reused across tiles instead of paying a fresh TLS handshake on every fetch.
+            // The handshake is more than half the cost of each tile, and deep LOD descent is
+            // a sequential critical path, so cutting per-tile latency matters. Keyed by host
+            // so a reused socket never receives a request intended for another server.
+            req.ParseUrl();  // populate req.host/req.port to key the client by host
+
+            static thread_local std::map<std::string, std::shared_ptr<hv::HttpClient> > t_clients;
+            std::string hostKey = req.scheme + "://" + req.host + ":" + std::to_string(req.port);
+            std::shared_ptr<hv::HttpClient>& clientPtr = t_clients[hostKey];
+            if (!clientPtr) clientPtr.reset(new hv::HttpClient());
+            
+            HttpResponse response;
+            int result = clientPtr->send(&req, &response);
             if (result != 0)
                 { OSG_WARN << "[loadFileData] Failed getting " << url << ": Err = " << result << std::endl; }
             else if (response.status_code > 200 || response.body.empty())
