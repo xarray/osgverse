@@ -4,6 +4,7 @@
 #include <mlt/util/buffer_stream.hpp>
 
 #include <stdexcept>
+#include <tuple>
 #include <type_traits>
 
 // WangRui 202602: downgrade to C++17

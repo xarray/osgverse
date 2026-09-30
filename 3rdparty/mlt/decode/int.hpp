@@ -41,7 +41,7 @@ public:
                         TTarget* out,
                         std::size_t outCount,
                         const StreamMetadata&,
-                        bool isSigned = std::is_signed_v<T>);
+                        bool isSigned = std::is_signed<T>::value);
 
     /// Decode an integer stream into the target buffer
     /// @param tileData source data
@@ -52,7 +52,7 @@ public:
     void decodeIntStream(BufferStream& tileData,
                          std::vector<TTarget>& out,
                          const StreamMetadata&,
-                         bool isSigned = std::is_signed_v<TDecode>);
+                         bool isSigned = std::is_signed<TDecode>::value);
 
     /// Decode an integer stream into the target buffer
     /// @param tileData source data
@@ -65,12 +65,12 @@ public:
                          std::size_t bufferSize,
                          std::vector<TTarget>& out,
                          const StreamMetadata&,
-                         bool isSigned = std::is_signed_v<TDecode>);
+                         bool isSigned = std::is_signed<TDecode>::value);
 
     template <typename TDecode, typename TInt = TDecode, typename TTarget = TInt>
     TTarget decodeConstIntStream(BufferStream& tileData,
                                  const StreamMetadata&,
-                                 bool isSigned = std::is_signed_v<TDecode>);
+                                 bool isSigned = std::is_signed<TDecode>::value);
 
     template <typename TDecode, typename TInt = TDecode, typename TTarget = TInt, bool Delta = true>
     void decodeMortonStream(BufferStream& tileData,

@@ -682,6 +682,7 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # Appr
                 -DUSINGZ                                                  # clipper2
                 -DIDXTYPEWIDTH=32 -DREALTYPEWIDTH=32                      # METIS
                 -DBOX3D_DOUBLE_PRECISION                                  # Box3D
+                -D_ENABLE_EXTENDED_ALIGNED_STORAGE                        # ByteTrack @VS2017
                 -DHAVE_UNORDERED_MAP=1 -D_USE_MATH_DEFINES)
 IF(MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # libhv: disable use of json.hpp in VS2015

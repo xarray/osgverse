@@ -10,7 +10,9 @@ set BuildGles2=0
 
 :: Android build type (mode 5): Debug or Release, used for the Gradle task and build result paths
 set AndroidBuildType=Debug
-set AndroidAbi=arm64-v8a      rem -Pabi for Gradle (ABI_FILTER) and -DOHOS_ARCH for Harmony
+:: Android build type (mode 5): -Pabi for Gradle (ABI_FILTER) and -DOHOS_ARCH for Harmony
+set AndroidAbi=arm64-v8a
+:: Android build type (mode 5): SDL2 version used by Android
 set Sdl2Version=release-2.24.0
 
 set QuietMode=0
@@ -149,8 +151,10 @@ if "!BuildSystemMode!"=="0" (
     :: Get Visual Studio version
     for /f "tokens=1 delims=." %%a in ('msbuild -nologo -version 2^>^&1') do (
         set "MSBUILD_MAJOR=%%a"
+        echo Found Visual Studio version: %%a
         goto found_msbuild
     )
+
 :found_msbuild
     if "%MSBUILD_MAJOR%"=="18" (
         set "CMAKE_GENERATOR=Visual Studio 18 2026"
@@ -330,6 +334,7 @@ if not "!SkipOsgBuild!"=="1" (
     )
     %SedEXE% -i.bak "s#ifndef GL_EXT_texture_compression_s3tc#if defined(GL_EXT_texture_compression_s3tc)==0 || defined(GL_EXT_texture_compression_s3tc_srgb)==0#g" "%OpenSceneGraphRoot%\include/osg/Texture"
     %SedEXE% -i.bak "s#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
+    %SedEXE% -i.bak "s#std::max#osg::maximum#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
     %SedEXE% -i.bak "s#case(GL_HALF_FLOAT):#case GL_HALF_FLOAT: case 0x8D61:#g" "%OpenSceneGraphRoot%\src\osg\Image.cpp"
 
     :: Fix OpenHarmony compilation errors
@@ -616,6 +621,7 @@ if "!SourceCodePatched!"=="1" (
     %SedEXE% -i.bak "s/#ANDROID_3RD_PARTY(#)/ANDROID_3RD_PARTY()/g" "%OpenSceneGraphRoot%\CMakeLists.txt"
     %SedEXE% -i.bak "s#NULL;\/\/dlopen\/\/(#dlopen(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
     %SedEXE% -i.bak "s#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
+    %SedEXE% -i.bak "s#osg::maximum#std::max#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
     %SedEXE% -i.bak "s#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"
 
     if "!BuildMode!"=="6" (
@@ -627,7 +633,6 @@ if "!SourceCodePatched!"=="1" (
 )
 echo Quited.
 endlocal
-pause
 goto :eof
 
 :: Keep the original timestamp of a file after it has been rewritten by sed, using

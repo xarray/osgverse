@@ -24,7 +24,11 @@ public:
           PropertyVecMap properties_) noexcept;
     ~Layer();
 
-    Layer(Layer&&) noexcept = default;
+    // Hand-written instead of "= default": MSVC 14.16 (VS2017) STL's unordered_map move constructor
+    // is not marked noexcept, which makes the defaulted noexcept move ctor "defined as deleted"
+    // and breaks std::vector<Layer>::push_back (C2280). Newer STLs are noexcept, so this only
+    // restores the intended behavior on old toolsets.
+    Layer(Layer&&) noexcept;
     Layer& operator=(Layer&&) = default;
 
     const std::string& getName() const noexcept { return name; }
