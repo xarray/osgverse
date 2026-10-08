@@ -15,8 +15,91 @@
 //#include <BulletCollision/NarrowPhaseCollision/btRaycastCallback.h>
 #include <modeling/Utilities.h>
 #include <animation/PhysicsEngine.h>
-#include <set>
 using namespace osgVerse;
+
+class BulletPhysicsEngine : public osgVerse::PhysicsEngine
+{
+public:
+    BulletPhysicsEngine();
+    BulletPhysicsEngine(const BulletPhysicsEngine& copy, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY)
+        : osgVerse::PhysicsEngine(copy, op) {}
+    META_Object(osgVerse, BulletPhysicsEngine)
+
+    // Rigid-body functions
+    virtual RigidBodyBase* addRigidBody(const std::string& name, CollisionShapeBase* s, float mass = 0.0f,
+                                        const osg::Matrix& m = osg::Matrix(), bool kinematic = false,
+                                        const ShapeSetting* setting = NULL);
+    virtual void removeBody(const std::string& name);
+    virtual bool isDynamicBody(const std::string& name, bool& isKinematic);
+
+    // Setting/getting transform and velocity functions
+    virtual void setTransform(const std::string& name, const osg::Matrix& matrix);
+    virtual osg::Matrix getTransform(const std::string& name, bool& valid);
+
+    virtual void setVelocity(const std::string& name, const osg::Vec3& v, bool linearOrAngular);
+    virtual osg::Vec3 getVelocity(const std::string& name, bool linearOrAngular);
+
+    virtual void setGravity(const osg::Vec3& gravity);
+    virtual osg::Vec3 getGravity() const;
+
+    // Constraint functions
+    virtual void addConstraint(const std::string& name, ConstraintBase* constraint,
+                                bool noCollisionsBetweenLinked = true);
+    virtual void removeConstraint(const std::string& name);
+    virtual ConstraintBase* createConstraint(RigidBodyBase* bodyA, const osg::Matrix& frameA,
+                                             RigidBodyBase* bodyB, const osg::Matrix& frameB,
+                                             ConstraintType type = CONSTRAINT_P2P,
+                                             const ConstraintSetting* setting = NULL);
+    virtual void setConstraintSetting(const std::string& name, const ConstraintSetting& setting);
+    virtual float getConstraintAngle(const std::string& name);
+    virtual float getConstraintTwistAngle(const std::string& name);
+
+    // Applying force functions
+    virtual void applyImpulse(const std::string& name, const osg::Vec3& point,
+                                const osg::Vec3& impulse, bool wake = true, bool linearOrAngular = true);
+    
+    // get*() functions
+    virtual float getInverseMass(const std::string& name);
+    virtual osg::Matrix getInverseInertia(const std::string& name);
+    virtual osg::Vec3 getCenterOfMass(const std::string& name);
+
+    // Extended rigid-body functions
+    virtual RigidBodyBase* createBody(const std::string& name, const BodySetting& setting,
+                                      const osg::Matrix& matrix = osg::Matrix());
+    virtual CollisionShapeBase* addShapeToBody(RigidBodyBase* body, CollisionShapeBase* shape,
+                                               float mass, const ShapeSetting* setting = NULL);
+    virtual void setShapeFriction(CollisionShapeBase* shape, float friction);
+    virtual void setGravityScale(const std::string& name, float scale);
+    virtual void setLinearDamping(const std::string& name, float damping);
+    virtual void setBullet(const std::string& name, bool flag);
+    virtual void setMassCenter(const std::string& name, const osg::Vec3& center);
+
+    // Collision and raycast functions
+    virtual bool raycast(const osg::Vec3& start, const osg::Vec3& end,
+                         RaycastHit& result, const QueryFilter& filter = QueryFilter(), bool getNameFromBody = true);
+    virtual std::vector<RaycastHit> raycastAll(const osg::Vec3& start, const osg::Vec3& end,
+                                               const QueryFilter& filter = QueryFilter(), bool getNameFromBody = true);
+    virtual SweepResult sweep(const osg::Vec3& start, const osg::Vec3& translation, CollisionShapeBase* shape,
+                              const QueryFilter& filter = QueryFilter(), RigidBodyBase* ignoredBody = NULL);
+
+    /* Physics creation functions */
+    virtual CollisionShapeBase* createPhysicsPoint();  // for kinematic use only
+    virtual CollisionShapeBase* createPhysicsBox(const osg::Vec3& halfSize);
+    virtual CollisionShapeBase* createPhysicsCylinder(const osg::Vec3& halfSize);
+    virtual CollisionShapeBase* createPhysicsCone(float radius, float height);
+    virtual CollisionShapeBase* createPhysicsCapsule(float radius, float height);
+    virtual CollisionShapeBase* createPhysicsSphere(float radius);
+    virtual CollisionShapeBase* createPhysicsHull(osg::Node* node, bool optimized = true);
+    virtual CollisionShapeBase* createPhysicsTriangleMesh(osg::Node* node, bool compressed = true);
+    virtual CollisionShapeBase* createPhysicsHeightField(osg::HeightField* hf, bool filpQuad = false);
+    virtual CollisionShapeBase* createPhysicsBox(const osg::Vec3& halfSize, const osg::Vec3& offset);
+    virtual CollisionShapeBase* createPhysicsCapsule(float radius, const osg::Vec3& c0, const osg::Vec3& c1);
+    
+    virtual void advance(float timeStep, int maxSubSteps = 1);
+
+protected:
+    virtual ~BulletPhysicsEngine();
+};
 
 namespace btHelpers
 {
@@ -214,7 +297,7 @@ namespace btHelpers
     static std::string findBodyName(const BulletPhysicsEngine* engine, const btCollisionObject* obj)
     {
         if (!engine || !obj) return std::string();
-        btRigidBody* target = btRigidBody::upcast(obj);
+        const btRigidBody* target = btRigidBody::upcast(obj);
         const std::map<std::string, osg::ref_ptr<RigidBodyBase>>& bodies = engine->getBodies();
         for (std::map<std::string, osg::ref_ptr<RigidBodyBase>>::const_iterator
              itr = bodies.begin(); itr != bodies.end(); ++itr)
@@ -227,7 +310,7 @@ namespace btHelpers
     /** Build an effective QueryFilter by merging the caller's filter with the engine's
         _disabledBodies list. Caller owns the returned set. */
     static std::set<std::string> buildEffectiveExcludeNames(const BulletPhysicsEngine* engine,
-                                                            const QueryFilter& f)
+                                                            const BulletPhysicsEngine::QueryFilter& f)
     {
         std::set<std::string> merged(f.excludeNames.begin(), f.excludeNames.end());
         const std::set<std::string>& disabled = engine->getDisabledBodies();
@@ -311,90 +394,6 @@ namespace btHelpers
 }
 
 #define PHY_WORLD() (((btHelpers::PhysicsCore*)_core.get())->_world)
-class BulletPhysicsEngine : public osgVerse::PhysicsEngine
-{
-public:
-    BulletPhysicsEngine();
-    BulletPhysicsEngine(const BulletPhysicsEngine& copy, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY)
-        : osgVerse::PhysicsEngine(copy, op) {}
-    META_Object(osgVerse, BulletPhysicsEngine)
-
-    // Rigid-body functions
-    virtual RigidBodyBase* addRigidBody(const std::string& name, CollisionShapeBase* s, float mass = 0.0f,
-                                        const osg::Matrix& m = osg::Matrix(), bool kinematic = false,
-                                        const ShapeSetting* setting = NULL);
-    virtual void removeBody(const std::string& name);
-    virtual bool isDynamicBody(const std::string& name, bool& isKinematic);
-
-    // Setting/getting transform and velocity functions
-    virtual void setTransform(const std::string& name, const osg::Matrix& matrix);
-    virtual osg::Matrix getTransform(const std::string& name, bool& valid);
-
-    virtual void setVelocity(const std::string& name, const osg::Vec3& v, bool linearOrAngular);
-    virtual osg::Vec3 getVelocity(const std::string& name, bool linearOrAngular);
-
-    virtual void setGravity(const osg::Vec3& gravity);
-    virtual osg::Vec3 getGravity() const;
-
-    // Constraint functions
-    virtual void addConstraint(const std::string& name, ConstraintBase* constraint,
-                                bool noCollisionsBetweenLinked = true);
-    virtual void removeConstraint(const std::string& name);
-    virtual ConstraintBase* createConstraint(RigidBodyBase* bodyA, const osg::Matrix& frameA,
-                                             RigidBodyBase* bodyB, const osg::Matrix& frameB,
-                                             ConstraintType type = CONSTRAINT_P2P,
-                                             const ConstraintSetting* setting = NULL);
-    virtual void setConstraintSetting(const std::string& name, const ConstraintSetting& setting);
-    virtual float getConstraintAngle(const std::string& name);
-    virtual float getConstraintTwistAngle(const std::string& name);
-
-    // Applying force functions
-    virtual void applyImpulse(const std::string& name, const osg::Vec3& point,
-                                const osg::Vec3& impulse, bool wake = true, bool linearOrAngular = true);
-    
-    // get*() functions
-    virtual float getInverseMass(const std::string& name);
-    virtual osg::Matrix getInverseInertia(const std::string& name);
-    virtual osg::Vec3 getCenterOfMass(const std::string& name);
-
-    // Extended rigid-body functions
-    virtual RigidBodyBase* createBody(const std::string& name, const BodySetting& setting,
-                                      const osg::Matrix& matrix = osg::Matrix());
-    virtual CollisionShapeBase* addShapeToBody(RigidBodyBase* body, CollisionShapeBase* shape,
-                                               float mass, const ShapeSetting* setting = NULL);
-    virtual void setShapeFriction(CollisionShapeBase* shape, float friction);
-    virtual void setGravityScale(const std::string& name, float scale);
-    virtual void setLinearDamping(const std::string& name, float damping);
-    virtual void setBullet(const std::string& name, bool flag);
-    virtual void setMassCenter(const std::string& name, const osg::Vec3& center);
-
-    // Collision and raycast functions
-    virtual bool raycast(const osg::Vec3& start, const osg::Vec3& end,
-                         RaycastHit& result, const QueryFilter& filter = QueryFilter(), bool getNameFromBody = true);
-    virtual std::vector<RaycastHit> raycastAll(const osg::Vec3& start, const osg::Vec3& end,
-                                               const QueryFilter& filter = QueryFilter(), bool getNameFromBody = true);
-    virtual SweepResult sweep(const osg::Vec3& start, const osg::Vec3& translation, CollisionShapeBase* shape,
-                              const QueryFilter& filter = QueryFilter(), RigidBodyBase* ignoredBody = NULL);
-
-    /* Physics creation functions */
-    virtual CollisionShapeBase* createPhysicsPoint();  // for kinematic use only
-    virtual CollisionShapeBase* createPhysicsBox(const osg::Vec3& halfSize);
-    virtual CollisionShapeBase* createPhysicsCylinder(const osg::Vec3& halfSize);
-    virtual CollisionShapeBase* createPhysicsCone(float radius, float height);
-    virtual CollisionShapeBase* createPhysicsCapsule(float radius, float height);
-    virtual CollisionShapeBase* createPhysicsSphere(float radius);
-    virtual CollisionShapeBase* createPhysicsHull(osg::Node* node, bool optimized = true);
-    virtual CollisionShapeBase* createPhysicsTriangleMesh(osg::Node* node, bool compressed = true);
-    virtual CollisionShapeBase* createPhysicsHeightField(osg::HeightField* hf, bool filpQuad = false);
-    virtual CollisionShapeBase* createPhysicsBox(const osg::Vec3& halfSize, const osg::Vec3& offset);
-    virtual CollisionShapeBase* createPhysicsCapsule(float radius, const osg::Vec3& c0, const osg::Vec3& c1);
-    
-    virtual void advance(float timeStep, int maxSubSteps = 1);
-
-protected:
-    virtual ~BulletPhysicsEngine();
-};
-
 BulletPhysicsEngine::BulletPhysicsEngine()
 { _core = new btHelpers::PhysicsCore; setName("Bullet3"); }
 

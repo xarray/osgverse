@@ -195,12 +195,13 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
 
     bool useOcean = arguments.read("--ocean"), useSky = arguments.read("--sky"), withAxes = arguments.read("--with-axes");
-    bool bLeft = arguments.read("--image-bottomleft"), wgs84 = arguments.read("--web-wgs84"), use2D = arguments.read("--map2d");
-    bool usePolar = arguments.read("--polar");
+    bool bLeft = arguments.read("--image-bottomleft"), wgs84 = arguments.read("--web-wgs84");
+    bool usePolar = arguments.read("--polar"), use2D = arguments.read("--map2d");
     bool usePolarNorth = usePolar || arguments.read("--polar-north");
     bool usePolarSouth = usePolar || arguments.read("--polar-south");
     bool usePolarCaps = (usePolarNorth || usePolarSouth) && !use2D;
     if (use2D && usePolar) OSG_NOTICE << "Polar caps are incompatible with 2D maps and will be ignored\n";
+    
     std::string startFile, use2Dor3D = use2D ? "UseEarth3D=0" : "UseEarth3D=1";
     std::string useBottomLeftImage = bLeft ? "OriginBottomLeft=1" : "OriginBottomLeft=0";
     std::string useWGS84Tile = wgs84 ? "UseWebMercator=0" : "UseWebMercator=1";
@@ -233,6 +234,7 @@ int main(int argc, char** argv)
     //   GEOVIS Earth: --ortho "https://tiles1.geovisearth.com/base/v1/img/{z}/{x}/{y}?token%3d<your_code>" --options "FlipVertical=1"
     //   Polar caps: --polar (adds polar-stereographic tiles covering |latitude| > 85, so that the
     //                      earth is complete at both poles instead of degenerating into triangles)
+    //               --polar-ortho <url> (optional polar-projected imagery, blank image if not given)
     std::string earthURLs = "Orthophoto=" + ortho + (!elev.empty() ? (" Elevation=" + elev + " ") : " ")
                           + useBottomLeftImage + " " + useWGS84Tile + " " + use2Dor3D;
     if (!headers.empty()) earthURLs += " RequestHeaders=" + headers;
@@ -246,17 +248,26 @@ int main(int argc, char** argv)
 #endif
 
     // Polar stereographic caps complete the globe beyond the polar circle, where web-mercator
-    // tiles would otherwise degenerate into triangles running out of the poles
+    // tiles would otherwise degenerate into triangles running out of the poles. Web-mercator
+    // imagery does not apply to them, so a placeholder image is used unless a dedicated
+    // polar-projected tile source is given with --polar-ortho
+    std::string polarOrtho; arguments.read("--polar-ortho", polarOrtho);
     osg::ref_ptr<osg::Group> polarCaps;
     if (usePolarCaps)
     {
         polarCaps = new osg::Group; polarCaps->setName("PolarCaps");
+        std::string capURLs = useBottomLeftImage + " UseWebMercator=1 UseEarth3D=1";
+        if (polarOrtho.empty()) capURLs += " BlankOrthophoto=1";
+        else capURLs += " Orthophoto=" + polarOrtho;
+        if (!headers.empty()) capURLs += " RequestHeaders=" + headers;
+        if (!options.empty()) capURLs += " " + options;
+
         const bool poles[2] = { usePolarNorth, usePolarSouth };
         for (int i = 0; i < 2; ++i)
         {
             if (!poles[i]) continue;
-            std::string capURLs = earthURLs + " PolarStereo=" + std::string(i == 0 ? "1" : "-1");
-            osg::ref_ptr<osgDB::Options> capOptions = new osgDB::Options(capURLs);
+            osg::ref_ptr<osgDB::Options> capOptions = new osgDB::Options(
+                capURLs + " PolarStereo=" + std::string(i == 0 ? "1" : "-1"));
             osg::ref_ptr<osg::Node> cap = osgDB::readNodeFile("0-0-0.verse_tms", capOptions.get());
             if (cap.valid()) polarCaps->addChild(cap.get());
             else OSG_NOTICE << "[earth_test] Failed to create " << (i == 0 ? "north" : "south") << " polar cap\n";

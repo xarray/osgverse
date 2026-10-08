@@ -90,6 +90,10 @@ public:
         supportsOption("PolarBoundary", "Keep the polar edge of an equirectangular / web-mercator"
                       " pyramid flat instead of snapping it to the pole, so that polar-stereographic"
                       " tiles can continue seamlessly: default=0");
+        supportsOption("BlankOrthophoto", "Use a solid-color placeholder image instead of loading the"
+                      " orthophoto layer, which is useful for polar-stereographic tiles having no"
+                      " matching web-mercator imagery: default=0");
+        supportsOption("BlankColor", "Color of the placeholder image as R,G,B in 0..1: default 0.5,0.5,0.5");
         supportsOption("OriginBottomLeft", "Use bottom-left as every tile's origin point: default=0");
         supportsOption("NoGlobeAttribute", "Donot use extra vertex-attribute for ocean-related data: default=0");
         supportsOption("FlatExtentMinX", "Flat earth extent X0: default -180");
@@ -230,8 +234,27 @@ protected:
             osgVerse::TileCallback::replace(elevPath1, ext, extWithVerse, changed);
 
         osg::ref_ptr<osgVerse::TileCallback> tileCB = new osgVerse::TileCallback(atoi(noGlobeAttr.c_str()) == 0);
+
+        // Polar-stereographic tiles have no matching web-mercator image, so allow replacing the
+        // orthophoto layer with a solid-color placeholder when no dedicated imagery is available
+        std::string blankStr = opt->getPluginStringData("BlankOrthophoto");
+        if (!blankStr.empty()) std::transform(blankStr.begin(), blankStr.end(), blankStr.begin(), tolower);
+        bool blankOrtho = (blankStr == "true" || atoi(blankStr.c_str()) > 0);
+        osg::ref_ptr<osg::Texture> blankTex;
+        if (blankOrtho)
+        {
+            osg::Vec4 color(0.5f, 0.5f, 0.5f, 1.0f);
+            std::string colorStr = opt->getPluginStringData("BlankColor");
+            if (!colorStr.empty())
+            {
+                std::vector<std::string> parts; osgDB::split(colorStr, parts, ',');
+                for (int i = 0; i < (int)parts.size() && i < 3; ++i) color[i] = (float)atof(parts[i].c_str());
+            }
+            blankTex = osgVerse::createDefaultTexture(color);
+        }
+
         tileCB->setLayerPath(osgVerse::TileCallback::ELEVATION, elevPath1);
-        tileCB->setLayerPath(osgVerse::TileCallback::ORTHOPHOTO, orthPath);
+        tileCB->setLayerPath(osgVerse::TileCallback::ORTHOPHOTO, blankOrtho ? "" : orthPath);
         tileCB->setLayerPath(osgVerse::TileCallback::OCEAN_MASK, maskPath);
         tileCB->setTotalExtent(extentMin, extentMax); tileCB->setTileNumber(x, y, z);
         tileCB->setBottomLeft(atoi(botLeft.c_str()) > 0);
@@ -274,7 +297,8 @@ protected:
         if (!elevHandler && !elevImage && !emptyPath0)
             { tileCB->setLayerPathState(osgVerse::TileCallback::ELEVATION, failState); allLayersDone = false; }
 
-        osg::ref_ptr<osg::Texture> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath0, opt);
+        osg::ref_ptr<osg::Texture> orthImage = blankTex.valid() ? blankTex.get() :
+            tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath0, opt);
         osg::ref_ptr<osg::Texture> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath1, opt);
         if (!orthImage && !emptyPath0)
             { tileCB->setLayerPathState(osgVerse::TileCallback::ORTHOPHOTO, failState); allLayersDone = false; }
