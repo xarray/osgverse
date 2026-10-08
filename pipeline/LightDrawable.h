@@ -70,13 +70,25 @@ namespace osgVerse
         /** Get if show debug wireframe model of the light. */
         bool getDebugShow() const { return _debugShow; }
 
+        /** The shape drawn for a visible light (see setDebugShow) is only a marker: it is sized
+            from the attenuation range scaled by this factor, so that a light with a large range
+            does not fill the whole scene with a huge wireframe volume. The range itself is still
+            used for culling (see computeBoundingBox) */
+        void setDebugSizeScale(float s) { _debugSizeScale = s; recreate(); }
+        float getDebugSizeScale() const { return _debugSizeScale; }
+
+        /** The bound used for culling is the volume of the light influence (its attenuation
+            range), which is independent from the smaller marker shape being drawn */
+        virtual osg::BoundingBox computeBoundingBox() const;
+
     protected:
         virtual ~LightDrawable();
         void recreate();
 
         osg::Vec3 _position, _direction, _lightColor;
-        float _attenuationRange, _spotCutoff;
+        float _attenuationRange, _spotCutoff, _debugSizeScale;
         bool _eyeSpace, _directional, _debugShow;
+        osg::BoundingSphere _lightBound;  // bound of the light influence, for culling
     };
 }
 

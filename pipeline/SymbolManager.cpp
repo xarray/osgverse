@@ -6,6 +6,7 @@
 #include <3rdparty/dkm_parallel.hpp>
 #include "Pipeline.h"
 #include "SymbolManager.h"
+#include "Utilities.h"
 
 #define RES 512
 using namespace osgVerse;
@@ -238,10 +239,10 @@ void SymbolManager::initialize(osg::Group* group)
 #endif
 
         // Apply default parameter textures
-        ss->setTextureAttributeAndModes(0, _posTexture.get());
-        ss->setTextureAttributeAndModes(1, _dirTexture.get());
-        ss->setTextureAttributeAndModes(2, _colorTexture.get());
-        ss->setTextureAttributeAndModes(3, _iconTexture.get());
+        osgVerse::applyTextureAttributeAndModes(ss, 0, _posTexture.get());
+        osgVerse::applyTextureAttributeAndModes(ss, 1, _dirTexture.get());
+        osgVerse::applyTextureAttributeAndModes(ss, 2, _colorTexture.get());
+        osgVerse::applyTextureAttributeAndModes(ss, 3, _iconTexture.get());
         ss->addUniform(new osg::Uniform("PosTexture", (int)0));
         ss->addUniform(new osg::Uniform("DirTexture", (int)1));
         ss->addUniform(new osg::Uniform("ColorTexture", (int)2));

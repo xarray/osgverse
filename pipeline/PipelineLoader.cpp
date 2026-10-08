@@ -605,7 +605,13 @@ namespace osgVerse
                                         if (cb != NULL)
                                         {
                                             LightModule* light = dynamic_cast<LightModule*>(cb);
-                                            if (light) light->applyTextureAndUniforms(s, iName, unit);
+                                            if (light)
+                                            {
+                                                // The shader sources stored in the preset files use
+                                                // a sampler2D light table, so keep that path here
+                                                light->setUseTextureBuffer(false);
+                                                light->applyTextureAndUniforms(s, iName, unit);
+                                            }
 
                                             ShadowModule* shadow = dynamic_cast<ShadowModule*>(cb);
                                             if (shadow) shadow->applyTextureAndUniforms(s, iName, unit);

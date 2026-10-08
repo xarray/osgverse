@@ -137,8 +137,18 @@ osg::StateSet* createPbrStateSet(osgVerse::Pipeline* pipeline)
     osgVerse::LightModule* lm = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (forwardSS.valid() && lm)
     {
-        forwardSS->setTextureAttributeAndModes(7, lm->getParameterTable());
-        forwardSS->addUniform(new osg::Uniform("LightParameterMap", 7));
+        // The light module uploads its table as a texture buffer object (TBO) on platforms
+        // supporting it, and as a plain texture otherwise (see LightModule::getUseTextureBuffer)
+        if (lm->getUseTextureBuffer() && lm->getParameterBuffer())
+        {
+            forwardSS->setTextureAttributeAndModes(7, lm->getParameterBuffer());
+            forwardSS->addUniform(new osg::Uniform("LightParameterBuffer", 7));
+        }
+        else
+        {
+            forwardSS->setTextureAttributeAndModes(7, lm->getParameterTable());
+            forwardSS->addUniform(new osg::Uniform("LightParameterMap", 7));
+        }
         forwardSS->addUniform(lm->getLightNumber());
     }
     return forwardSS.release();
@@ -224,5 +234,8 @@ int main(int argc, char** argv)
 
     int screenNo = 0; arguments.read("--screen", screenNo);
     viewer.setUpViewOnSingleScreen(screenNo);
+
+    // Optional automation for AI agent / scripted testing: set the view, capture and quit
+    osgVerse::configureViewerForAgent(arguments, &viewer);
     return viewer.run();
 }

@@ -175,7 +175,20 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     if (shaderType == osg::Shader::VERTEX || shaderType == osg::Shader::GEOMETRY)
     {
 #if !defined(VERSE_EMBEDDED_GLES2)
-        if (glVer >= 300 && glslVer >= 140)
+        // The osg_* vertex inputs and matrices come from osg's vertex attribute aliasing and its
+        // osg_* matrix uniforms, which only exist on a core profile (GL3/GL4, GLES3): a
+        // compatibility profile keeps the fixed-function inputs instead. Note the two are
+        // deliberately decoupled from the shader #version: a compatibility context on a modern
+        // driver is compiled with a modern #version (which is what the light module needs for its
+        // texture buffers, see isTextureBufferSupported()), while still using gl_Vertex,
+        // gl_ModelViewMatrix and friends, so that the rendering stays identical to the legacy
+        // GLSL 120 path
+#if defined(OSG_GL3_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+        const bool aliasedVertexIO = (glVer >= 300 && glslVer >= 140);
+#else
+        const bool aliasedVertexIO = false;
+#endif
+        if (aliasedVertexIO)
         {
             m_mvp = "osg_ModelViewProjectionMatrix"; m_mv = "osg_ModelViewMatrix";
             m_p = "osg_ProjectionMatrix"; m_n = "osg_NormalMatrix";
@@ -286,6 +299,16 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     ss << "#define VERSE_TEX2DARRAY " << tex2dArr << std::endl;
     ss << "#define VERSE_TEX3D " << tex3d << std::endl;
     ss << "#define VERSE_TEXCUBE " << texCube << std::endl;
+    // samplerBuffer (texture buffer objects) is what LightModule uses by default to upload the
+    // light parameter table, and to upload the light cluster index / offset buffers. The decision
+    // comes from the runtime GL & GLSL versions (not from the build configuration), so that a
+    // compatibility profile context on a modern driver gets them too; a GLES2/WebGL1 context does
+    // not, and keeps the Texture2D based light table (see LightModule::getUseTextureBuffer())
+    if (isTextureBufferSupported(glVer, glslVer))
+    {
+        ss << "#define VERSE_LIGHT_BUFFER 1" << std::endl;
+        ss << "#define VERSE_LIGHT_CLUSTER 1" << std::endl;
+    }
 
     for (size_t i = 0; i < extraDefs.size(); ++i) ss << extraDefs[i] << std::endl;
     for (size_t i = 0; i < userDefs.size(); ++i) ss << userDefs[i] << std::endl;

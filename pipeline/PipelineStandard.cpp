@@ -17,6 +17,8 @@
 #include <osg/FrameStamp>
 #include <osg/Timer>
 #include <cmath>
+#include <map>
+#include <mutex>
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ConvertUTF>
@@ -139,6 +141,29 @@ namespace
 
         std::string msgData = "ID = " + idInfo + "\n" + std::string(message)
                             + " (Source = " + srcInfo + ", Type = " + typeInfo + ")";
+
+        // A single misuse of the context -- a fixed-function capability which the core profile has
+        // removed, a primitive mode which no longer exists, ... -- is reported by the driver for
+        // every draw which triggers it, which can reach tens of thousands of messages in a few
+        // seconds of rendering. Each unique message is therefore printed once in full, and only its
+        // repeat count is reported afterwards, so that a genuine error stays visible without
+        // burying the rest of the log
+        static std::mutex s_debugMutex;
+        static std::map<std::string, unsigned int> s_debugRepeats;
+        unsigned int repeats = 0;
+        {
+            std::lock_guard<std::mutex> lock(s_debugMutex);
+            unsigned int& counter = s_debugRepeats[msgData]; repeats = counter++;
+        }
+
+        if (repeats > 0)
+        {
+            if (repeats == 9 || repeats == 99 || repeats == 999 || repeats == 9999)
+                OSG_NOTICE << "[GLDebug] The last message has been repeated "
+                           << (repeats + 1) << " times" << std::endl;
+            return;
+        }
+
         switch (severity)
         {
         case GL_DEBUG_SEVERITY_HIGH: OSG_WARN << "[GLDebug HIGH] " << msgData << std::endl; break;
@@ -169,7 +194,7 @@ public:
         _data = new osgVerse::GLVersionData;
         _data->glVersion = 0.0f; _data->glslVersion = 0.0f;
         _data->glslSupported = false; _data->fboSupported = false;
-        if (p) p->setVersionData(_data.get());
+        _pipeline = p; if (p) p->setVersionData(_data.get());
     }
 
     virtual void operator()(osg::RenderInfo& renderInfo) const { check(renderInfo.getState()); }
@@ -225,6 +250,13 @@ public:
         glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, &maxSsboVS);
         glGetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, &maxSsboFS);
 
+        // Texture buffer objects (samplerBuffer) are what the light module uploads its parameter
+        // table and light cluster buffers with by default (see isTextureBufferSupported()): a
+        // non-zero maximum size means they are available, so a driver which reports a supporting
+        // GL version but fails the query can still make the light module fall back to Texture2D
+        GLint maxTexBufferSize = 0;
+        glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &maxTexBufferSize);
+
         GLint maxTransFeedback = 0, maxOutVecGS = 0, maxPatchTS = 0;
         GLint maxComputeMemTS = 0, maxMeshMemTS = 0, maxTaskMemTS = 0;
         glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &maxTransFeedback);
@@ -250,16 +282,28 @@ public:
         d->capabilities["max_ubo_bindings"] = maxUboBinds;                // Low => [36, 96] => High
         d->capabilities["max_ssbo_bindings"] =
             osg::minimum(maxSsboVS, maxSsboFS);                           // Low => [0, 16] => High
+        d->capabilities["max_texture_buffer_size"] = maxTexBufferSize;    // samplerBuffer support: >0
         d->capabilities["transform_feedback"] = maxTransFeedback;         // Transform feedback buffers: >4
         d->capabilities["geometry_shader"] = maxOutVecGS;                 // Geometry shader outputs: 256
         d->capabilities["tess_shader"] = maxPatchTS;                      // Tess shader patches: 120
         d->capabilities["compute_shader"] = maxComputeMemTS;              // Compute shader memory: >16384
         d->capabilities["mesh_shader"] = maxMeshMemTS;                    // Mesh shader memory: >16384
         d->capabilities["task_shader"] = maxTaskMemTS;                    // Mesh shader memory: >16384
+
+        // Re-publish the (now filled) version data: the pipeline derives its effective GL & GLSL
+        // versions from it, and everything which depends on them (shader #version and feature
+        // macros, osg_* matrix uniforms, the texture buffer path of the light module...) is thus
+        // decided by what the driver really provides. A compatibility profile context on a modern
+        // driver reports a modern version here, so it gets the TBO / clustered light path as well,
+        // instead of being limited to the version implied by the build configuration. Setting the
+        // VERSE_NO_RUNTIME_VERSION environment variable opts out and keeps the conservative
+        // behaviour (GLSL 120 on a compatibility build), in case a driver misreports its version
+        if (_pipeline.valid() && !getenv("VERSE_NO_RUNTIME_VERSION")) _pipeline->setVersionData(_data.get());
     }
 
 protected:
     osg::ref_ptr<osgVerse::GLVersionData> _data;
+    osg::observer_ptr<osgVerse::Pipeline> _pipeline;
 };
 
 /** Beyond this screen-space displacement (in pixels) of the reprojected history, the motion could
@@ -952,6 +996,24 @@ namespace osgVerse
         osg::ref_ptr<osgVerse::LightModule> lightModule = new osgVerse::LightModule("Light", p);
         lightModule->setShadowMaxDistance(spp.shadowMaxDistance);
         mainCam->addUpdateCallback(lightModule.get());
+        {   // Report how the light table is uploaded, and whether the clustered culling is on: both
+            // follow the runtime GL/GLSL versions, so a compatibility profile context on a modern
+            // driver gets them, while GLES2/WebGL1 falls back to the plain Texture2D light table
+            GLVersionData* glData = p->getVersionData();
+            int texBufSize = -1;
+            if (glData != NULL)
+            {
+                std::map<std::string, int>::const_iterator it =
+                    glData->capabilities.find("max_texture_buffer_size");
+                if (it != glData->capabilities.end()) texBufSize = it->second;
+            }
+            OSG_NOTICE << "[StandardPipeline] Light table via "
+                       << (lightModule->getUseTextureBuffer() ?
+                           "texture buffer object (TBO)" : "texture 2D (low-end fallback)")
+                       << "; light clustering " << (lightModule->getClusterEnabled() ? "on" : "off");
+            if (texBufSize >= 0) OSG_NOTICE << " (GL_MAX_TEXTURE_BUFFER_SIZE = " << texBufSize << ")";
+            OSG_NOTICE << std::endl;
+        }
 
         // Update 3DGS sorter
         if (spp.enable3DGS)

@@ -137,8 +137,8 @@ namespace osgVerse
 
         BoundsOctreeNode<T> shrinkIfPossible(float minLength)
         {
-            if (baseLength < (2 * minLength)) return this;
-            if (_objects.size() == 0 && _children.size() == 0) return this;
+            if (baseLength < (2 * minLength)) return *this;
+            if (_objects.size() == 0 && _children.size() == 0) return *this;
 
             int bestFit = -1, newBestFit = -1;
             for (size_t i = 0; i < _objects.size(); ++i)
@@ -147,10 +147,10 @@ namespace osgVerse
                 newBestFit = bestFitChild(curObj.bounds.center());
                 if (i == 0 || newBestFit == bestFit)
                 {   // In same octant as the other(s). Does it fit completely inside that octant?
-                    if (!encapsulates(_childBounds[newBestFit], curObj.bounds)) return this;
+                    if (!encapsulates(_childBounds[newBestFit], curObj.bounds)) return *this;
                     else { if (bestFit < 0) bestFit = newBestFit; }
                 }
-                else return this;
+                else return *this;
             }
 
             // Check objects in children if there are any
@@ -159,8 +159,8 @@ namespace osgVerse
             {
                 if (_children[i].hasAnyObjects())
                 {
-                    if (childHadContent) return this;
-                    if (bestFit >= 0 && bestFit != i) return this;
+                    if (childHadContent) return *this;
+                    if (bestFit >= 0 && bestFit != i) return *this;
                     childHadContent = true; bestFit = i;
                 }
             }
@@ -169,9 +169,9 @@ namespace osgVerse
             {   // We don't have any children, so just shrink this node to the new size
                 // We already know that everything will still fit in it
                 setValues(baseLength / 2, _minSize, _looseness, _childBounds[bestFit].center());
-                return this;
+                return *this;
             }
-            if (bestFit == -1) return this;  // No objects in entire octree
+            if (bestFit == -1) return *this;  // No objects in entire octree
             return _children[bestFit];
         }
 
@@ -316,7 +316,7 @@ namespace osgVerse
             size_t totalObjects = _objects.size();
             for (size_t i = 0; i < _children.size(); ++i)
             {
-                BoundsOctreeNode<T>& child = _children[i];
+                const BoundsOctreeNode<T>& child = _children[i];
                 if (!child._children.empty())
                 {
                     // If any of the *children* have children, there are definitely too many to merge,
@@ -396,7 +396,7 @@ namespace osgVerse
         std::vector<osg::ref_ptr<T>> getColliding(const osg::BoundingBoxd& checkBounds) const
         {
             std::vector<osg::ref_ptr<T>> colliding;
-            _rootNode.GetColliding(checkBounds, colliding);
+            _rootNode.getColliding(checkBounds, colliding);
             return colliding;
         }
 

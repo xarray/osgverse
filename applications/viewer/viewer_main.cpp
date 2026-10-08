@@ -127,7 +127,7 @@ public:
              it = s->outputs.begin(); it != s->outputs.end(); ++it, ++ptr)
         {
             if (ptr != output) continue;
-            _stateset->setTextureAttributeAndModes(0, it->second.get());
+            osgVerse::applyTextureAttributeAndModes(_stateset.get(), 0, it->second.get());
             _text->setText(s->name + "::" + it->first); break;
         }
         _currentStage = stage;
@@ -390,6 +390,7 @@ int main(int argc, char** argv)
     // Start the main loop
     //osgVerse::ScreenSnapshotCallback* capturer = new osgVerse::ScreenSnapshotCallback;
     //pipeline->getForwardCamera()->setFinalDrawCallback(capturer);
+    osgVerse::configureViewerForAgent(arguments, &viewer);
     while (!viewer.done())
     {
         viewer.frame();

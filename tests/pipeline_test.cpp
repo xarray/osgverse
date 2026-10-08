@@ -292,5 +292,8 @@ int main(int argc, char** argv)
 
     // Must use single-threaded if you share buffers between stages!
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+
+    // Optional automation for AI agent / scripted testing: set the view, capture and quit
+    osgVerse::configureViewerForAgent(arguments, &viewer);
     return viewer.run();
 }

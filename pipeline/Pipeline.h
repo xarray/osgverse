@@ -11,6 +11,7 @@
 #include <osg/Geode>
 #include <osgViewer/Viewer>
 #include <string>
+#include <cstdlib>
 #include "DeferredCallback.h"
 
 /** Pipeline mask range:
@@ -30,6 +31,10 @@
 
 #ifndef GL_HALF_FLOAT_OES
     #define GL_HALF_FLOAT_OES                 0x8D61
+#endif
+
+#ifndef GL_MAX_TEXTURE_BUFFER_SIZE
+    #define GL_MAX_TEXTURE_BUFFER_SIZE        0x8C2B
 #endif
 
 #ifndef GL_ARB_texture_rg
@@ -79,6 +84,16 @@ namespace osgVerse
         void copy(GLVersionData* data);  // copy from another version checker
         int score();  // compute a score of current graphics card for checking performance
     };
+
+    /** Texture buffer objects (samplerBuffer) are core since desktop GL 3.1 / GLSL 1.40 and
+        GLES 3.1, and are what LightModule uploads the light parameter table and the light cluster
+        index / offset buffers with by default. The decision is taken from the runtime GL & GLSL
+        versions (see Pipeline::getContextTargetVersion() / getGlslTargetVersion()), not from the
+        build configuration: a compatibility profile context on a modern driver reports a version
+        which supports them, and a GLES2/WebGL1 context does not. Applications can still force
+        the plain Texture2D path with LightModule::setUseTextureBuffer(false) */
+    inline bool isTextureBufferSupported(int glVersion, int glslVersion)
+    { return (glVersion >= 310 && glslVersion >= 140); }
 
     /** Module to be used in pipeline */
     class RenderingModuleBase : public osg::NodeCallback

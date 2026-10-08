@@ -3,6 +3,7 @@
 #include <osg/ValueObject>
 #include <osg/Depth>
 #include <osg/Billboard>
+#include <osg/TextureBuffer>
 #include <osgDB/ReadFile>
 #include <osgUtil/RenderStage>
 #include <osgViewer/Renderer>
@@ -33,7 +34,13 @@ namespace
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
         ss->setTextureAttribute(unit, tex);  // No need for glEnable(tex_mode) in GLES 2.0/3.x and GL3/4
 #else
-        ss->setTextureAttributeAndModes(unit, tex);
+        // A texture buffer object is sampled from the shader only, and GL_TEXTURE_BUFFER is not a
+        // valid capability: enabling it as a fixed-function texture mode (which a compatibility
+        // profile would do for a real 2D/3D/cube texture) raises GL_INVALID_ENUM on every draw, so
+        // the mode is skipped for it. The light module uses buffer textures by default, and a
+        // compatibility profile context reaches this path too now
+        if (dynamic_cast<osg::TextureBuffer*>(tex) != NULL) ss->setTextureAttribute(unit, tex);
+        else ss->setTextureAttributeAndModes(unit, tex);
 #endif
     }
 
@@ -1056,12 +1063,17 @@ namespace osgVerse
         _stageSize = osg::Vec2s(w, h);
         _stageContext->setResizedCallback(new MyResizedCallback(this));
 
-        // Enable the osg_* uniforms that the shaders will use in GL3/GL4 and GLES2/3
+        // Enable the osg_* uniforms that the shaders will use in GL3/GL4 and GLES2/3. On a
+        // compatibility profile the fixed-function inputs (gl_Vertex, gl_ModelViewMatrix...) are
+        // kept instead, which keeps the rendering identical to the legacy GLSL 120 path even when
+        // the shaders are compiled with a higher #version (see ShaderLibrary::createShaderDefinitions)
+#if defined(OSG_GL3_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         if (_glContextVersion >= 300 || _glslTargetVersion >= 140)
         {
             _stageContext->getState()->setUseModelViewAndProjectionUniforms(true);
             _stageContext->getState()->setUseVertexAttributeAliasing(true);
         }
+#endif
     }
 
     void Pipeline::clearStagesFromView(osgViewer::View* view, osg::Camera* mainCam)

@@ -4,6 +4,8 @@
 #include <osg/FrameBufferObject>
 #include <osg/RenderInfo>
 #include <osg/GLExtensions>
+#include <osg/StateSet>
+#include <osg/TextureBuffer>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geometry>
 #include <osg/PolygonMode>
@@ -808,6 +810,24 @@ namespace osgVerse
         tex2D->setImage(image); return tex2D.release();
     }
 
+    void applyTextureAttributeAndModes(osg::StateSet* ss, int unit, osg::Texture* tex, int values)
+    {
+        if (ss == NULL || tex == NULL) return;
+        osg::StateAttribute::GLModeValue v = (osg::StateAttribute::GLModeValue)values;
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+        // No glEnable(tex_mode) in GLES 2.0/3.x and GL3/4: the mode does not exist there and the
+        // driver would report an invalid enum for every draw using the state set
+        ss->setTextureAttribute(unit, tex, v);
+#else
+        // A buffer texture is sampled from the shader only and has no fixed-function enable:
+        // GL_TEXTURE_BUFFER is not a valid capability, so it is set without its mode even here,
+        // where the other textures still need the mode for the fixed-function pipeline to sample
+        // them (a compatibility profile context reaches this path too)
+        if (dynamic_cast<osg::TextureBuffer*>(tex) != NULL) ss->setTextureAttribute(unit, tex, v);
+        else ss->setTextureAttributeAndModes(unit, tex, v);
+#endif
+    }
+
     osg::Geode* createScreenQuad(const osg::Vec3& corner, float width, float height, const osg::Vec4& uvRange)
     {
         osg::Geometry* geom = osg::createTexturedQuadGeometry(
@@ -1071,8 +1091,8 @@ namespace osgVerse
                 "}\n"
             };
             APPLY_PROGRAM(camera->getOrCreateStateSet(), vsCode, fsCode);
-            camera->getOrCreateStateSet()->setTextureAttributeAndModes(
-                0, createDefaultTexture(osg::Vec4(0.8f, 0.8f, 0.8f, 1.0f)));
+            osgVerse::applyTextureAttributeAndModes(
+                camera->getOrCreateStateSet(), 0, createDefaultTexture(osg::Vec4(0.8f, 0.8f, 0.8f, 1.0f)));
             camera->getOrCreateStateSet()->addUniform(new osg::Uniform("BaseTexture", (int)0));
             advanceImageViewer(viewer.get(), camera.get(), image.get(), true);
         }
@@ -1319,7 +1339,7 @@ namespace osgVerse
             }
 
             if (nMap.valid() && nMap->valid())
-                ss.setTextureAttributeAndModes(_normalMapUnit, createTexture2D(nMap.get()));
+                osgVerse::applyTextureAttributeAndModes(&ss, _normalMapUnit, createTexture2D(nMap.get()));
         }
 
         if (_specMapUnit > 0)
@@ -1340,7 +1360,7 @@ namespace osgVerse
             }
 
             if (spMap.valid() && spMap->valid())
-                ss.setTextureAttributeAndModes(_specMapUnit, createTexture2D(spMap.get()));
+                osgVerse::applyTextureAttributeAndModes(&ss, _specMapUnit, createTexture2D(spMap.get()));
         }
         OSG_NOTICE << "Normal-map generation for " << fileName << " finished" << std::endl;
     }

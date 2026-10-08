@@ -296,6 +296,9 @@ int main(int argc, char** argv)
         }
     }
 
+    // Optional automation for AI agent / scripted testing: set the view, capture and quit
+    osgVerse::configureViewerForAgent(arguments, viewer.get());
+
     float lightX = 0.02f; bool lightD = true, animated = arguments.read("--animated");
     std::cout << "Shadow testing started..." << std::endl;
     while (!viewer->done())

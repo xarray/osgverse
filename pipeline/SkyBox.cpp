@@ -160,7 +160,7 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     setCullCallback(new TexMatCallback(*tm));
 #endif
 
-    _stateset->setTextureAttributeAndModes(0, _skymap.get(), values);
+    osgVerse::applyTextureAttributeAndModes(_stateset.get(), 0, _skymap.get(), values);
     _stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
     _stateset->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
     if (_vertex.valid() && _fragment.valid() && getNumChildren() > 0) return;

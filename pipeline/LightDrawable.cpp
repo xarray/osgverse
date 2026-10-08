@@ -20,10 +20,13 @@ bool LightCullCallback::cull(osg::NodeVisitor* nv, osg::Drawable* drawable, osg:
         if (!unlimited && cv->isCulled(ld->getBound())) return true;
 #endif
 
-        // If not culled, add parameters to global light manager
+        // If not culled, add parameters to global light manager. Note the light is recorded in
+        // its own local space: it may well have been culled for a camera which is not the one
+        // finally shading the scene (a shadow or a sky camera, and only the last of them would
+        // have its matrix stored), so the view transform is applied later on by the light
+        // module, once it knows the camera it is building the light table for
         LightGlobalManager::LightData lData;
         lData.light = ld; lData.frameNo = cv->getFrameStamp()->getFrameNumber();
-        lData.matrix = ld->getEyeSpace() ? osg::Matrix() : (*cv->getModelViewMatrix());
         LightGlobalManager::instance()->add(lData);
         return !ld->getDebugShow();
     }
@@ -31,7 +34,7 @@ bool LightCullCallback::cull(osg::NodeVisitor* nv, osg::Drawable* drawable, osg:
 }
 
 LightDrawable::LightDrawable()
-:   osg::ShapeDrawable(), _eyeSpace(false), _debugShow(false)
+:   osg::ShapeDrawable(), _debugSizeScale(0.1f), _eyeSpace(false), _debugShow(false)
 {
     setUseDisplayList(false); setUseVertexBufferObjects(true);
     setCullCallback(LightGlobalManager::instance()->getCallback());
@@ -45,8 +48,9 @@ LightDrawable::LightDrawable()
 LightDrawable::LightDrawable(const LightDrawable& copy, const osg::CopyOp& copyop)
 :   osg::ShapeDrawable(copy, copyop), _lightColor(copy._lightColor),
     _position(copy._position), _direction(copy._direction), _attenuationRange(copy._attenuationRange),
-    _spotCutoff(copy._spotCutoff), _eyeSpace(copy._eyeSpace),
-    _directional(copy._directional), _debugShow(copy._debugShow) {}
+    _spotCutoff(copy._spotCutoff), _debugSizeScale(copy._debugSizeScale),
+    _eyeSpace(copy._eyeSpace), _directional(copy._directional), _debugShow(copy._debugShow),
+    _lightBound(copy._lightBound) {}
 
 LightDrawable::~LightDrawable()
 {
@@ -75,31 +79,50 @@ void LightDrawable::recreate()
     osg::Quat q; q.makeRotate(osg::X_AXIS, _direction);
     float length = _attenuationRange;
 
+    // An unlimited light has no range, so a nominal size keeps its volume from collapsing to a
+    // point; the drawn marker of a bounded light is scaled down by _debugSizeScale, so that a
+    // light whose attenuation reaches far (a hundred times the size of a room, for instance) does
+    // not fill the whole view with a huge wireframe volume
+    if (length <= 0.0f) length = 1.0f;
+    float markerLength = osg::maximum(length * _debugSizeScale, length * 0.001f);
+
+    // The volume the light influence reaches (used for culling, see computeBoundingBox) is a
+    // sphere of the attenuation range around the position: the shader falloff is purely radial
     switch (getType(unlimited))
     {
     case Directional:
-        {
-            osg::Cylinder* cylinder = new osg::Cylinder(_position, length * 0.5f, length);
-            cylinder->setRotation(q); shape = cylinder;
+        {   // A long cuboid along the light direction, so a directional light is easy to tell from
+            // the sphere of a point light and the cone of a spot light in the debug view
+            osg::Box* box = new osg::Box(_position, markerLength, markerLength * 0.5f, markerLength * 0.5f);
+            box->setRotation(q); shape = box;
         }
         break;
     case SpotLight:
         if (_spotCutoff < osg::PI_2)
         {
-            float radius = length * atan(_spotCutoff);
-            osg::Cone* cone = new osg::Cone(_position, radius, length);
+            float radius = markerLength * atan(_spotCutoff);
+            osg::Cone* cone = new osg::Cone(_position, radius, markerLength);
             cone->setRotation(q); shape = cone;
         }
         else
-            shape = new osg::Sphere(_position, length);
+            shape = new osg::Sphere(_position, markerLength);
         break;
     default:
-        shape = new osg::Sphere(_position, length);
+        shape = new osg::Sphere(_position, markerLength);
         break;
     }
 
+    _lightBound.set(_position, length);
     setShape(shape.get());
     setComputeBoundingBoxCallback(
         unlimited ? new osgVerse::DisableBoundingBoxCallback : NULL);
     dirtyBound();
+}
+
+osg::BoundingBox LightDrawable::computeBoundingBox() const
+{
+    // Only reached for a bounded light (unlimited ones install DisableBoundingBoxCallback, so the
+    // cull visitor never drops them): the influence of the light has to stay cullable even though
+    // the drawn shape is only a small marker
+    osg::BoundingBox bb; bb.expandBy(_lightBound); return bb;
 }

@@ -76,11 +76,18 @@ vec3 get_spot_light_contribution(vec3 view_dir, vec3 eyespace_pos, vec3 light_po
                                  vec3 albedo, float metallic, float roughness, vec3 normal, float range, float cutoff)
 {
     vec3 spot_dir = -light_dir0, light_dir = -normalize(light_pos - eyespace_pos);
-    if (dot(spot_dir, light_dir) < cutoff) return vec3(0.0, 0.0, 0.0);
+
+    // 'cutoff' is the cosine of the outer half-angle of the cone. The edge is smoothed over the last
+    // quarter of the cone (in cosine space) rather than tested with a hard cutoff: a hard test draws
+    // a sharp-edged colored patch on every surface the cone touches, which is not what a spot light
+    // looks like and shimmers under the slightest camera or light movement
+    float outerCos = clamp(cutoff, 0.0, 0.99995);
+    float spotEffect = smoothstep(outerCos, mix(outerCos, 1.0, 0.25), dot(spot_dir, light_dir));
+    if (spotEffect <= 0.0) return vec3(0.0, 0.0, 0.0);
 
     float dist = distance(eyespace_pos, light_pos), falloff = 1.0;
     if (range > 0.0) falloff = pow(clamp(1.0 - pow(dist / range, 4.0), 0.0, 1.0), 2.0) / (pow(dist, 2.0) + 1.0);
-    vec3 incoming_irradiance = (light_irradiance * falloff) * clamped_cosine(normal, light_dir);
+    vec3 incoming_irradiance = (light_irradiance * (falloff * spotEffect)) * clamped_cosine(normal, light_dir);
     return get_light_contribution(albedo, metallic, roughness, normal, incoming_irradiance, view_dir, light_dir);
 }
 

@@ -15,6 +15,8 @@
 #include <osgDB/ConvertUTF>
 #include <osgViewer/GraphicsWindow>
 #include <osgViewer/Viewer>
+#include <osgGA/CameraManipulator>
+#include <osgGA/EventQueue>
 #include <chrono>
 #include <locale>
 #include <codecvt>
@@ -41,9 +43,24 @@ ScreenSnapshotCallback::ScreenSnapshotCallback(bool c, int fps)
 
 void ScreenSnapshotCallback::flush(const std::string& prefix)
 {
+    if (_outputList.empty())
+    {
+        OSG_WARN << "[ScreenSnapshotCallback] Nothing to write: no frame has been captured yet "
+                 << "(is the callback really attached to the drawn camera, and is capturing on?)"
+                 << std::endl;
+        return;
+    }
+
     for (std::map<std::string, osg::ref_ptr<osg::Image>>::iterator it = _outputList.begin();
          it != _outputList.end(); ++it)
-    { osgDB::writeImageFile(*(it->second), prefix + it->first); }
+    {
+        std::string file = prefix + it->first;
+        if (osgDB::writeImageFile(*(it->second), file))
+            OSG_NOTICE << "[ScreenSnapshotCallback] Wrote " << file << std::endl;
+        else
+            OSG_WARN << "[ScreenSnapshotCallback] Failed to write " << file
+                     << " (is a plugin for this image format installed?)" << std::endl;
+    }
     _outputList.clear();
 }
 
@@ -73,6 +90,161 @@ void ScreenSnapshotCallback::operator()(const osg::Camera & camera) const
         }
         _lastTime = t0; _count++;
     }
+}
+
+/************** Agent (AI) view & capture helper **************/
+namespace
+{
+    /** The per-frame driver of the agent automation: it waits for the scene to settle, optionally
+        sends a few key strokes, then enables the snapshot callback for one or more frames and
+        finally quits the viewer. It lives in an event handler (instead of a plain draw callback)
+        so that it is able to post synthetic key events to the same event queue the user would use,
+        which is what makes it possible to toggle features (clustering on/off, shadows...) and see
+        the difference in the captured images without editing the test case again */
+    class AgentFrameHandler : public osgGA::GUIEventHandler
+    {
+    public:
+        AgentFrameHandler(osgViewer::View* viewer, ScreenSnapshotCallback* cb,
+                          int captureFrame, const std::vector<int>& keys, bool toQuit)
+        :   _viewer(viewer), _callback(cb), _captureFrame(captureFrame), _keys(keys),
+            _toQuit(toQuit), _frame(0), _keysSent(false), _capturing(false), _finished(false) {}
+
+        virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+        {
+            if (ea.getEventType() != osgGA::GUIEventAdapter::FRAME || _finished) return false;
+            if (!_callback.valid()) return false; else _frame++;
+
+            // Keys are sent a couple of frames before the capture, so their effects (which may
+            // need a frame each: state switching, buffer resizing, TAA history dropping...) are
+            // fully applied to the image we are about to read
+            if (_frame == _captureFrame && !_keysSent)
+            {
+                osgGA::EventQueue* eq = _viewer.valid() ? _viewer->getEventQueue() : NULL;
+                if (eq)
+                {
+                    for (size_t i = 0; i < _keys.size(); ++i)
+                    { eq->keyPress(_keys[i]); eq->keyRelease(_keys[i]); }
+                }
+                _keysSent = true;
+            }
+
+            if (_frame == _captureFrame + 2 && !_capturing)
+            { _callback->setCapturing(true); _capturing = true; }
+            else if (_capturing && _frame >= _captureFrame + 4)
+            {
+                _callback->setCapturing(false); _callback->flush("");
+                _finished = true;
+                OSG_NOTICE << "[Agent] Snapshot saved as '" << _callback->getFilePrefix()
+                           << "_<index>.png'" << std::endl;
+                if (_toQuit)
+                {
+                    osgViewer::ViewerBase* vb =
+                        dynamic_cast<osgViewer::ViewerBase*>(&aa);
+                    if (vb) vb->setDone(true);
+                }
+            }
+            return false;
+        }
+
+    protected:
+        osg::observer_ptr<osgViewer::View> _viewer;
+        osg::observer_ptr<ScreenSnapshotCallback> _callback;
+        std::vector<int> _keys;
+        int _captureFrame, _frame;
+        bool _toQuit, _keysSent, _capturing, _finished;
+    };
+}
+
+bool osgVerse::configureViewerForAgent(osg::ArgumentParser& arguments, osgViewer::View* viewer)
+{
+    // Parse (and always consume) all agent options, even when the mode is not enabled, so that
+    // they never leak into osgDB::readNodeFiles() and get mistaken for file names
+    bool enabled = arguments.read("--agent") || arguments.read("--ai");
+    int frames = 60, fps = 0, winW = 0, winH = 0;
+    std::string output = "agent_snapshot", keyString;
+    osg::Vec3 eye(0.0f, 0.0f, 0.0f), center(0.0f, 0.0f, 0.0f), up(0.0f, 0.0f, 1.0f);
+    bool hasEye = arguments.read("--agent-eye", eye.x(), eye.y(), eye.z());
+    if (arguments.read("--agent-center", center.x(), center.y(), center.z())) hasEye = true;
+    arguments.read("--agent-up", up.x(), up.y(), up.z());
+    arguments.read("--agent-frames", frames);
+    arguments.read("--agent-output", output);
+    arguments.read("--agent-fps", fps);
+    arguments.read("--agent-size", winW, winH);
+    arguments.read("--agent-keys", keyString);
+    bool keep = arguments.read("--agent-keep");
+    if (!enabled || viewer == NULL) return false;
+    if (frames < 1) frames = 1;
+
+    // 1) Window size. It is best applied before realize(); after that the resize is forwarded to
+    // the graphics window (when there is one), but a not-yet-created context simply keeps it
+    if (winW > 0 && winH > 0)
+    {
+        osg::GraphicsContext* gc = viewer->getCamera() ? viewer->getCamera()->getGraphicsContext() : NULL;
+        osgViewer::GraphicsWindow* gw = dynamic_cast<osgViewer::GraphicsWindow*>(gc);
+        if (gw) { gw->setWindowRectangle(0, 0, winW, winH); gw->resized(0, 0, winW, winH); }
+        if (viewer->getCamera()) viewer->getCamera()->setViewport(new osg::Viewport(0, 0, winW, winH));
+    }
+
+    // 2) Initial view. The manipulator is preferred so that a later user interaction starts from
+    // the same place; without one the camera view matrix is set directly
+    if (hasEye && viewer->getCamera())
+    {
+        osg::Matrixd lookAt = osg::Matrixd::lookAt(eye, center, up);
+        osgGA::CameraManipulator* manip = viewer->getCameraManipulator();
+        if (manip) manip->setByInverseMatrix(lookAt);
+        else viewer->getCamera()->setViewMatrix(lookAt);
+    }
+
+    // 3) Snapshot callback. It has to be attached to the camera which really draws the image on
+    // screen: when a pipeline is in use the main camera is detached (setGraphicsContext(NULL))
+    // and one of its slaves (the forward pass, or the last stage) owns the window. The last
+    // slave with a graphics context is therefore preferred, and the main camera is the fallback
+    // for a plain viewer
+    osg::ref_ptr<ScreenSnapshotCallback> callback = new ScreenSnapshotCallback(false, fps);
+    callback->setFilePrefix(output);
+    osg::Camera* shotCamera = viewer->getCamera();
+    for (unsigned int i = viewer->getNumSlaves(); i > 0; --i)
+    {
+        osg::View::Slave& slave = viewer->getSlave(i - 1);
+        if (slave._camera.valid() && slave._camera->getGraphicsContext())
+        { shotCamera = slave._camera.get(); break; }
+    }
+
+    if (shotCamera)
+    {
+        osg::Camera::DrawCallback* existing = shotCamera->getFinalDrawCallback();
+        callback->setup(shotCamera, FINAL_DRAW);
+        if (existing != NULL && existing != callback.get() &&
+            dynamic_cast<CameraDrawCallback*>(existing) == NULL)
+        {
+            OSG_WARN << "[Agent] The camera <" << shotCamera->getName()
+                     << "> already has a final draw callback (" << existing->className()
+                     << "), which is not an osgVerse CameraDrawCallback: the screenshot callback "
+                     << "can not be chained and screenshots may fail." << std::endl;
+        }
+        OSG_NOTICE << "[Agent] Screenshot attached to camera <" << shotCamera->getName()
+                   << ">" << std::endl;
+    }
+
+    // 4) Keys to press before the capture: single characters ("c") or numeric key codes ("99")
+    std::vector<int> keys;
+    if (!keyString.empty())
+    {
+        std::vector<std::string> tokens; StringAuxiliary::split(keyString, tokens, ',');
+        for (size_t i = 0; i < tokens.size(); ++i)
+        {
+            if (tokens[i].empty()) continue;
+            if (tokens[i].size() == 1) keys.push_back((int)tokens[i][0]);
+            else keys.push_back((int)atoi(tokens[i].c_str()));
+        }
+    }
+
+    // 5) Automation driver
+    viewer->addEventHandler(new AgentFrameHandler(viewer, callback.get(), frames, keys, !keep));
+    OSG_NOTICE << "[Agent] Automation enabled: capture after " << frames << " frame(s) as '"
+               << output << "_<index>.png'" << (keep ? " (window kept open)" : ", then quit")
+               << std::endl;
+    return true;
 }
 
 /************** Hash **************/
@@ -275,9 +447,9 @@ void EarthAtmosphereOcean::applyToGlobe(osg::StateSet* ss, osg::Texture* baseTex
         Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
     }
 
-    ss->setTextureAttributeAndModes(0, baseTex);
-    ss->setTextureAttributeAndModes(1, maskTex);
-    ss->setTextureAttributeAndModes(2, extraTex);
+    osgVerse::applyTextureAttributeAndModes(ss, 0, baseTex);
+    osgVerse::applyTextureAttributeAndModes(ss, 1, maskTex);
+    osgVerse::applyTextureAttributeAndModes(ss, 2, extraTex);
     ss->getOrCreateUniform("SceneSampler", osg::Uniform::INT)->set((int)0);
     ss->getOrCreateUniform("MaskSampler", osg::Uniform::INT)->set((int)1);
     ss->getOrCreateUniform("ExtraLayerSampler", osg::Uniform::INT)->set((int)2);
@@ -301,8 +473,8 @@ void EarthAtmosphereOcean::applyToOcean(osg::StateSet* ss, osg::Texture* postMas
         Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
     }
 
-    ss->setTextureAttributeAndModes(0, postMaskTex);
-    ss->setTextureAttributeAndModes(1, waveTex);
+    osgVerse::applyTextureAttributeAndModes(ss, 0, postMaskTex);
+    osgVerse::applyTextureAttributeAndModes(ss, 1, waveTex);
     ss->getOrCreateUniform("EarthMaskSampler", osg::Uniform::INT)->set((int)0);
     ss->getOrCreateUniform("WavesSampler", osg::Uniform::INT)->set((int)1);
     apply(ss, vs, fs, 2, ref);
@@ -322,7 +494,7 @@ void EarthAtmosphereOcean::applyToAtmosphere(osg::StateSet* ss, osg::Texture* ea
         Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
     }
 
-    ss->setTextureAttributeAndModes(0, earthSceneTex);
+    osgVerse::applyTextureAttributeAndModes(ss, 0, earthSceneTex);
     ss->getOrCreateUniform("SceneSampler", osg::Uniform::INT)->set((int)0);
     apply(ss, vs, fs, 1, ref);
 }
@@ -340,10 +512,10 @@ osg::Program* EarthAtmosphereOcean::apply(osg::StateSet* ss, osg::Shader* vs, os
     osg::ref_ptr<osg::Program> program = new osg::Program;
     program->addShader(vs); program->addShader(fs);
     ss->setAttributeAndModes(program.get());
-    ss->setTextureAttributeAndModes(startU + 0, transmittance.get());
-    ss->setTextureAttributeAndModes(startU + 1, irradiance.get());
-    ss->setTextureAttributeAndModes(startU + 2, inscatter.get());
-    ss->setTextureAttributeAndModes(startU + 3, glare.get());
+    osgVerse::applyTextureAttributeAndModes(ss, startU + 0, transmittance.get());
+    osgVerse::applyTextureAttributeAndModes(ss, startU + 1, irradiance.get());
+    osgVerse::applyTextureAttributeAndModes(ss, startU + 2, inscatter.get());
+    osgVerse::applyTextureAttributeAndModes(ss, startU + 3, glare.get());
     ss->getOrCreateUniform("TransmittanceSampler", osg::Uniform::INT)->set((int)startU + 0);
     ss->getOrCreateUniform("SkyIrradianceSampler", osg::Uniform::INT)->set((int)startU + 1);
     ss->getOrCreateUniform("InscatterSampler", osg::Uniform::INT)->set((int)startU + 2);

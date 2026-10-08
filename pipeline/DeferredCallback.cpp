@@ -481,7 +481,7 @@ namespace osgVerse
             osg::Vec3(), osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec3(0.0f, 1.0, 0.0f));
         geometry->setUseDisplayList(false); geometry->setUseVertexBufferObjects(true);
 
-        if (texIn) geometry->getOrCreateStateSet()->setTextureAttributeAndModes(unit, texIn);
+        if (texIn) osgVerse::applyTextureAttributeAndModes(geometry->getOrCreateStateSet(), unit, texIn);
 #if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         geometry->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 #endif

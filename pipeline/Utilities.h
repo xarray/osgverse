@@ -40,6 +40,8 @@ typedef unsigned int CUdeviceptr_v2;
 #endif
 typedef CUdeviceptr_v2 CUdeviceptr;
 
+namespace osgViewer { class View; }
+
 namespace osgVerse
 {
 
@@ -78,6 +80,27 @@ namespace osgVerse
 #ifndef ONLY_CUDA_DEFINITIONS
     class Pipeline;
 
+    /** Configure a viewer for automated (AI agent) testing. It parses the agent options below
+        from the command line, optionally sets the initial camera view, captures screenshot(s)
+        after a number of frames, and quits automatically. It is meant to be called once before
+        the rendering loop, in both test examples and the viewer application, so that an AI agent
+        (or a script) is able to launch a case, look at a wanted view and inspect the output
+        without any manual interaction. Returns true if the agent mode is enabled.
+
+        Supported command line options:
+        - --agent / --ai          : enable the agent automation mode
+        - --agent-frames N        : frames to render before capturing (default 60)
+        - --agent-output PREFIX   : output image prefix; files are written as PREFIX_<idx>.png
+        - --agent-fps N           : capture frequency; 0 means capture every frame (default 0)
+        - --agent-eye X Y Z       : eye position of the initial view
+        - --agent-center X Y Z    : center (look-at) position of the initial view
+        - --agent-up X Y Z        : up vector of the initial view (default 0 0 1)
+        - --agent-size W H        : window/viewport size (best-effort; use it before realize())
+        - --agent-keys "c,s"      : keys pressed right before capturing, to toggle features
+        - --agent-keep            : do not quit after capturing (keep the window open)
+    */
+    extern bool configureViewerForAgent(osg::ArgumentParser& arguments, osgViewer::View* viewer);
+
     /** Get unique node-path like name (e.g. rootName/childA/subChildB/0) */
     extern std::string getNodePathID(osg::Object& obj, osg::Node* root = NULL, char sep = '/');
 
@@ -112,6 +135,14 @@ namespace osgVerse
 
     /** Create 2D texture from an input image */
     extern osg::Texture2D* createTexture2D(osg::Image* img, osg::Texture::WrapMode m = osg::Texture::REPEAT);
+
+    /** Apply a texture to a texture unit of a state set. The fixed-function texture enables
+        (GL_TEXTURE_2D and its 1D/3D/cube/rectangle siblings) do not exist in a desktop GL core
+        profile, nor in GLES and WebGL: setting them makes the driver report an invalid enum for
+        every draw using the state set, so GL3/GLES builds bind the texture attribute without its
+        mode (a shader samples the texture from its sampler uniform instead) */
+    extern void applyTextureAttributeAndModes(osg::StateSet* ss, int unit, osg::Texture* tex,
+                                              int values = osg::StateAttribute::ON);
 
     /** Create a XOY quad, often for screen-rendering use */
     extern osg::Geode* createScreenQuad(const osg::Vec3& corner, float width, float height,
