@@ -16,28 +16,29 @@
 #include "EarthAppConfig.h"
 #include "LayerRegistry.h"
 
-// 配置驱动的"世界数据源"框架(精简移植自朋友版 feed_layer):
-// - DataSource: 抓取线程 + 主线程同步重建 GL_POINTS + 拾取 + 详情数据;
-// - HttpJsonSource: GET(osgVerse::loadFileData,复用核心库 HTTP 客户端)+
-//   picojson 解析的中间基类,具体源只需实现 parsePoints();
-// - DataSourceFactory: 类型名 → 构造函数的注册表,配置文件的 data_sources[].type
-//   据此实例化,新增数据源不需要改框架代码;
-// - DataSourceManager: 持有全部源、注册全局拾取处理器、向 LayerRegistry 报告状态。
+// Config-driven "world data source" framework (a trimmed port of the friend's feed_layer):
+// - DataSource: fetch thread + main-thread sync rebuild of GL_POINTS + picking + detail data;
+// - HttpJsonSource: an intermediate base class for GET (osgVerse::loadFileData, reusing the
+//   core library HTTP client) + picojson parsing; concrete sources only implement parsePoints();
+// - DataSourceFactory: registry from type name -> constructor; the config file's
+//   data_sources[].type instantiates accordingly, so adding a source needs no framework change;
+// - DataSourceManager: holds all sources, registers the global pick handler, reports status to
+//   LayerRegistry.
 namespace earthds
 {
-    // 注册内置数据源类型(feed_sources.cpp;main 里在 initialize 之前调用一次)
+    // Register built-in data source types (feed_sources.cpp; called once in main before initialize)
     void registerBuiltinSourceTypes();
 
     struct DataPoint
     {
-        double lat = 0.0, lon = 0.0;   // 度
+        double lat = 0.0, lon = 0.0;   // degrees
         float sizePx = 8.0f;
         osg::Vec4 color = osg::Vec4(1, 1, 1, 1);
-        std::string title, detail;     // 详情卡标题/正文(已格式化多行)
-        std::string url;               // 可空:详情卡"打开"按钮的链接
+        std::string title, detail;     // detail card title/body (pre-formatted multi-line)
+        std::string url;               // nullable: link for the detail card "Open" button
     };
 
-    // 跨全部源的当前选中要素(拾取处理器写、UI 读,内部有锁)
+    // Currently selected feature across all sources (written by pick handler, read by UI, locked internally)
     struct Selection
     {
         bool valid = false;
@@ -52,27 +53,29 @@ namespace earthds
         DataSource(const earthee::SourceConfig& cfg);
         const earthee::SourceConfig& config() const { return _cfg; }
 
-        // 线程约定:enabled 由 UI(draw 线程)写、抓取线程读 → atomic
+        // Threading contract: enabled is written by the UI (draw thread) and read by the fetch
+        // thread -> atomic
         void setEnabled(bool on);
         bool isEnabled() const { return _enabled; }
 
-        // 0=未抓取,1=成功有要素,2=失败(见 lastError),3=成功但 0 要素
+        // 0=not fetched yet, 1=success with features, 2=failed (see lastError), 3=success but 0 features
         int fetchState() const { return _fetchState; }
         std::string lastError() const;
         size_t pointCount() const;
 
-        // 取前 maxN 条要素标题(AI 助手的 get_data_summary 样本用;加锁拷贝)
+        // Copy the first maxN feature titles (used as samples by the AI assistant's
+        // get_data_summary; locked copy)
         void sampleTitles(std::vector<std::string>& out, size_t maxN) const;
 
-        // 挂到场景的根节点(内含抓取线程,随节点析构而 join)
+        // Root node attached to the scene (contains the fetch thread, joined on node destruction)
         osg::Group* root() { return _root; }
-        void pickAt(osg::Camera* cam, float mx, float my);  // 主/事件线程
-        void syncIfDirty();                                 // 主线程(更新回调)
-        void pollFetch();                                   // 抓取线程(轮询体)
+        void pickAt(osg::Camera* cam, float mx, float my);  // main/event thread
+        void syncIfDirty();                                 // main thread (update callback)
+        void pollFetch();                                   // fetch thread (poll body)
 
     protected:
         virtual ~DataSource();
-        // 抓取线程调用:取数 + 解析。失败返回 false 并填写 err。
+        // Called by the fetch thread: fetch + parse. Returns false and fills err on failure.
         virtual bool fetch(std::vector<DataPoint>& points, std::string& err) = 0;
 
         const earthee::SourceConfig _cfg;
@@ -92,30 +95,31 @@ namespace earthds
         osg::ref_ptr<osg::StateSet> _ss;
         std::vector<Record> _records;
         Snapshot _pending;
-        mutable OpenThreads::Mutex _mutex;  // 守护 _records/_pending
+        mutable OpenThreads::Mutex _mutex;  // guards _records/_pending
         mutable OpenThreads::Mutex _errMutex;
         std::string _lastErrorText;
         std::atomic<bool> _enabled;
         std::atomic<int> _fetchState;       // 0/1/2/3
         bool _dirty;
-        int _tick;                        // 抓取线程的轮询节拍计数
+        int _tick;                        // poll tick counter of the fetch thread
         OpenThreads::Thread* _thread;
     };
 
-    // HTTP GET + JSON 解析的公共基类:URL 中 "{key}" 会被 resolveKey 的结果替换
+    // Common base class for HTTP GET + JSON parsing: "{key}" in the URL is replaced by the
+    // result of resolveKey
     class HttpJsonSource : public DataSource
     {
     protected:
         HttpJsonSource(const earthee::SourceConfig& cfg, const earthee::AppConfig& app);
         virtual bool fetch(std::vector<DataPoint>& points, std::string& err);
-        // 解析 JSON 根对象产出要素;返回 false = 解析失败(数据格式不符)
+        // Parse the JSON root object into features; returns false = parse failure (data format mismatch)
         virtual bool parsePoints(const picojson::value& root, std::vector<DataPoint>& points) = 0;
     private:
         std::string _resolvedKey;
     };
 
-    // 类型注册表:data_sources[].type → Creator。registerBuiltinSourceTypes()
-    // 注册内置源;扩展新源 = 新文件里 REGISTRY 注册,零侵入。
+    // Type registry: data_sources[].type -> Creator. registerBuiltinSourceTypes()
+    // registers the built-in sources; extending with a new source = register in a new file, zero intrusion.
     class DataSourceFactory
     {
     public:
@@ -135,16 +139,18 @@ namespace earthds
         std::map<std::string, Creator> _creators;
     };
 
-    // 全部数据源的管理器(应用持有,随场景销毁)
+    // Manager of all data sources (owned by the application, destroyed with the scene)
     class DataSourceManager
     {
     public:
-        // 按配置实例化全部源,注册图层条目与拾取处理器;返回挂到场景相机的根组。
-        // 任何源创建失败都只是控制台告警 + 跳过,不影响其余源。
+        // Instantiate all sources from the config, register layer entries and the pick handler;
+        // returns the root group attached to the scene camera.
+        // Any source creation failure is only a console warning + skip, affecting no other source.
         osg::Group* initialize(const earthee::AppConfig& cfg, osgViewer::Viewer& viewer,
                                LayerRegistry& layers);
 
-        // 状态带 "n/m":开启且最近一轮抓取成功的源数 / 开启的源数
+        // Status carries "n/m": number of sources enabled and successfully fetched in the last
+        // round / number of enabled sources
         void health(int& okCount, int& enabledCount) const;
         const std::vector<osg::ref_ptr<DataSource>>& sources() const { return _sources; }
         void clearSelectionIfSource(const std::string& sourceId);

@@ -14,7 +14,7 @@ TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseReaderWriter osgVerseAnimation osgVers
 LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
 TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 IF(MSVC)
-    # 源码为 UTF-8(无 BOM,含中文注释/字面量),必须显式告知 MSVC
+    # Source files are UTF-8 (no BOM); tell MSVC explicitly
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PRIVATE /utf-8)
 ENDIF()
 

@@ -1,15 +1,16 @@
 #ifndef EARTH_AI_CHAT_H
 #define EARTH_AI_CHAT_H
-// AI 助手核心框架(移植自朋友版 ai_chat.h/.cpp 并重构为多供应商):
-// - 一切能力皆 Tool:ToolRegistry 集中注册,函数调用在主线程 drain 执行(碰场景图安全);
-// - LLMProvider 抽象 + 三种实现:
-//     OpenAICompatibleProvider —— /chat/completions 协议,DeepSeek/通义/GLM/Kimi
-//                                 等国内外模型只需换 base_url + model;
-//     GeminiProvider           —— Google generateContent 协议;
-//     FakeProvider             —— 离线脚本回放,无网络/无 key 也可验证整条代理循环;
-// - AIChatCore:代理循环状态机。主线程 submit → worker 线程调 provider →
-//   主线程 drainMainThread 执行工具 → 再起 worker……直到模型给出纯文本收尾。
-// 本头文件只依赖 std + picojson,不含 OSG,便于独立测试。
+// AI assistant core framework (ported from a friend's ai_chat.h/.cpp and refactored for multiple providers):
+// - Every capability is a Tool: ToolRegistry registers them centrally, and function calls are
+//   drained and executed on the main thread (safe to touch the scene graph);
+// - LLMProvider abstraction + three implementations:
+//     OpenAICompatibleProvider —— /chat/completions protocol; DeepSeek/Tongyi/GLM/Kimi
+//                                 and other domestic/overseas models only need base_url + model swapped;
+//     GeminiProvider           —— Google generateContent protocol;
+//     FakeProvider             —— offline script playback; verifies the whole agent loop without network/key;
+// - AIChatCore: the agent loop state machine. Main thread submit → worker thread calls provider →
+//   main thread drainMainThread executes tools → start worker again... until the model finishes with plain text.
+// This header depends only on std + picojson and does not include OSG, so it can be tested standalone.
 #include <functional>
 #include <map>
 #include <mutex>
@@ -20,12 +21,12 @@
 
 namespace earthai
 {
-    // ---------------- 工具注册表 ----------------
+    // ---------------- Tool registry ----------------
     struct Tool
     {
         std::string name, description;
-        std::string parametersJson;   // JSON schema(object)字符串,直接嵌入各协议的声明段
-        // 主线程执行(由 AIChatCore 的 drainMainThread 保证);返回值回传给模型
+        std::string parametersJson;   // JSON schema (object) string, embedded directly into each protocol's declaration section
+        // Executed on the main thread (guaranteed by AIChatCore::drainMainThread); the return value is sent back to the model
         std::function<picojson::value(const picojson::value& args)> execute;
     };
 
@@ -35,9 +36,9 @@ namespace earthai
         void add(const Tool& t) { _tools.push_back(t); }
         const std::vector<Tool>& tools() const { return _tools; }
 
-        // Gemini functionDeclarations 数组 JSON(空表 → "[]")
+        // Gemini functionDeclarations array JSON (empty list → "[]")
         std::string buildGeminiDeclarationsJson() const;
-        // OpenAI 兼容 tools 数组 JSON([{"type":"function","function":{...}}])
+        // OpenAI-compatible tools array JSON ([{"type":"function","function":{...}}])
         std::string buildOpenAIToolsJson() const;
 
         bool dispatch(const std::string& name, const picojson::value& args, picojson::value& result);
@@ -45,66 +46,67 @@ namespace earthai
     private:
         bool parseParameters(const Tool& t, picojson::value& out) const;
 
-        std::vector<Tool> _tools;   // 只在主线程注册/枚举/dispatch,无需加锁
+        std::vector<Tool> _tools;   // registered/enumerated/dispatched only on the main thread, no locking needed
     };
 
-    // ---------------- 中立会话历史(各 Provider 自行序列化) ----------------
+    // ---------------- Neutral conversation history (each Provider serializes it itself) ----------------
     struct FunctionCall
     {
         std::string name;
         picojson::value args;
-        std::string id;             // OpenAI tool_call_id / Gemini functionCall.id 配对用
+        std::string id;             // used to pair OpenAI tool_call_id / Gemini functionCall.id
     };
     struct LLMTurn { std::string text; std::vector<FunctionCall> calls; std::string error; };
 
     struct HistoryItem
     {
         enum Role { USER_TEXT, MODEL_TEXT, MODEL_CALL, TOOL_RESPONSE } role;
-        std::string text;              // USER_TEXT / MODEL_TEXT 用
-        std::string callName;          // MODEL_CALL / TOOL_RESPONSE 用
-        std::string callId;            // 调用与响应严格配对(两家协议都要求)
-        picojson::value callArgs;      // MODEL_CALL 用
-        picojson::value toolResponse;  // TOOL_RESPONSE 用
+        std::string text;              // for USER_TEXT / MODEL_TEXT
+        std::string callName;          // for MODEL_CALL / TOOL_RESPONSE
+        std::string callId;            // strictly pairs calls with responses (both protocols require it)
+        picojson::value callArgs;      // for MODEL_CALL
+        picojson::value toolResponse;  // for TOOL_RESPONSE
         HistoryItem() : role(USER_TEXT) {}
     };
 
-    // Provider 的输入:完整历史 + 工具声明(两种协议各一份,由 AIChatCore 在主线程
-    // 预先算好——worker 线程绝不碰 ToolRegistry)+ 是否携带工具 + 系统提示词
+    // Provider input: full history + tool declarations (one copy per protocol, precomputed by
+    // AIChatCore on the main thread — the worker thread never touches ToolRegistry)
+    // + whether tools are carried + the system prompt
     struct ChatRequest
     {
         std::vector<HistoryItem> history;
         bool withTools = true;
         std::string systemPrompt;
-        std::string openAIToolsJson;        // OpenAI 兼容 tools 数组(withTools=false 时为空)
-        std::string geminiDeclarationsJson; // Gemini functionDeclarations 数组(同上)
+        std::string openAIToolsJson;        // OpenAI-compatible tools array (empty when withTools=false)
+        std::string geminiDeclarationsJson; // Gemini functionDeclarations array (same as above)
     };
 
     class LLMProvider
     {
     public:
         virtual ~LLMProvider() {}
-        // 同步阻塞调用,由 AIChatCore 的工作线程执行,绝不在主线程调
+        // Synchronous blocking call, executed by AIChatCore's worker thread, never called on the main thread
         virtual LLMTurn chat(const ChatRequest& req) = 0;
-        // 日志/UI 显示名(如 "deepseek-chat@api.deepseek.com"),不得包含 API Key
+        // Display name for logs/UI (e.g. "deepseek-chat@api.deepseek.com"); must not contain the API Key
         virtual std::string describe() const = 0;
     };
 
-    // ---------------- Provider 配置(由 EarthAppConfig 转换而来) ----------------
+    // ---------------- Provider configuration (converted from EarthAppConfig) ----------------
     struct AIProviderSetup
     {
-        std::string name;             // 配置里的供应商标识,如 "deepseek"
+        std::string name;             // provider identifier from config, e.g. "deepseek"
         std::string type;             // openai_compatible / gemini / fake
-        std::string baseUrl;          // openai_compatible 用(如 https://api.deepseek.com/v1)
-        std::string model;            // 模型名(如 deepseek-chat / gemini-2.5-flash)
-        std::string apiKey;           // 已解析的凭证(可为空 = 该 Provider 不可用)
-        std::string scriptFile;       // fake 用:回放脚本 JSON 文件
+        std::string baseUrl;          // for openai_compatible (e.g. https://api.deepseek.com/v1)
+        std::string model;            // model name (e.g. deepseek-chat / gemini-2.5-flash)
+        std::string apiKey;           // resolved credential (may be empty = this Provider is unavailable)
+        std::string scriptFile;       // for fake: playback script JSON file
         int timeoutSeconds = 60;
     };
 
-    // 按配置实例化 Provider;type 未知或 fake 脚本缺失时返回 NULL(调用方禁用 AI 并告警)
+    // Instantiate a Provider from config; returns NULL when the type is unknown or the fake script is missing (caller disables AI and warns)
     LLMProvider* createLLMProvider(const AIProviderSetup& p);
 
-    // OpenAI 兼容 /chat/completions(DeepSeek / Qwen / GLM / Kimi / OpenAI 同构)
+    // OpenAI-compatible /chat/completions (DeepSeek / Qwen / GLM / Kimi / OpenAI are isomorphic)
     class OpenAICompatibleProvider : public LLMProvider
     {
     public:
@@ -126,7 +128,7 @@ namespace earthai
         AIProviderSetup _setup;
     };
 
-    // 离线回放:EARTH_AI_FAKE=<json> 的数组,按序出队,每项 {"text":...}/{"calls":[...]}/{"error":...}
+    // Offline playback: array from EARTH_AI_FAKE=<json>, dequeued in order, each item {"text":...}/{"calls":[...]}/{"error":...}
     class FakeProvider : public LLMProvider
     {
     public:
@@ -138,37 +140,39 @@ namespace earthai
         std::vector<LLMTurn> _script; size_t _cursor = 0; std::mutex _mutex;
     };
 
-    // ---------------- 会话记录(UI 读) ----------------
+    // ---------------- Chat transcript (read by UI) ----------------
     struct ChatEntry { enum Kind { USER, ASSISTANT, TOOL_NOTE, ERR } kind; std::string text; };
 
-    // ---------------- 代理循环状态机 ----------------
+    // ---------------- Agent loop state machine ----------------
     class AIChatCore
     {
     public:
-        AIChatCore(LLMProvider* p, ToolRegistry* reg);  // 不持有 provider/registry 所有权
-        ~AIChatCore();  // join 残留 worker,避免退出崩溃
+        AIChatCore(LLMProvider* p, ToolRegistry* reg);  // does not own provider/registry
+        ~AIChatCore();  // join any remaining worker to avoid a crash on exit
 
         void setMaxRounds(int n) { _maxRounds = (n > 0 ? n : 30); }
         void setSystemPrompt(const std::string& p) { _systemPrompt = p; }
 
-        // UI(draw 线程)调用:提交一条用户消息;busy 则忽略并提示
+        // Called by UI (draw thread): submit a user message; if busy, ignore and notify
         void submit(const std::string& userText);
         bool busy() const;
 
-        // 主线程每帧调:执行排队的工具调用(工具必须主线程)、推进代理循环
+        // Called every frame on the main thread: execute queued tool calls (tools must run on the main thread), advance the agent loop
         void drainMainThread();
 
-        // UI 读(加锁快照)
+        // Read by UI (locked snapshot)
         std::vector<ChatEntry> transcript() const;
 
-        // 外部子系统把错误呈现到聊天记录(线程安全)
+        // External subsystems present errors into the chat transcript (thread-safe)
         void addErrorNote(const std::string& text);
 
-        // 每次成功接受用户指令后、启动 worker 前,主线程读一次地球工作区快照(JSON)。
-        // 快照会与用户原文一起发给模型(带信任边界),transcript 仍只显示用户原文。
+        // After each successfully accepted user instruction, before starting the worker, the main
+        // thread reads the earth workspace snapshot (JSON) once.
+        // The snapshot is sent to the model together with the raw user text (with a trust boundary),
+        // while the transcript still shows only the raw user text.
         void setContextProvider(const std::function<std::string()>& provider);
 
-        // 仅测试用:导出当前历史序列化后的 Gemini contents JSON,校验 call/response 配对
+        // Test-only: export the serialized Gemini contents JSON of the current history to verify call/response pairing
         std::string historyContentsForTest() const;
 
     private:
@@ -186,11 +190,11 @@ namespace earthai
         std::vector<HistoryItem> _history;
         bool _busy = false;
         int _round = 0;
-        int _callIdCounter = 0;                  // 模型没给 id 时合成 "call_N"
-        bool _forceNoTools = false;              // 撞轮次上限后强制下一轮不带工具
+        int _callIdCounter = 0;                  // synthesize "call_N" when the model gives no id
+        bool _forceNoTools = false;              // force the next round to carry no tools after hitting the round limit
         std::function<std::string()> _contextProvider;
 
-        // worker 产出,主线程 drain 消费
+        // worker output, consumed by the main thread drain
         std::vector<ChatEntry> _pendingEntries;
         std::vector<FunctionCall> _pendingCalls;
         bool _hasPendingResult = false;

@@ -317,6 +317,100 @@ Note: `osgVerse_Test_Physics_Basic` etc. only build when their optional deps
 (Bullet/FFmpeg/Draco) are found; missing targets usually mean a dep was not
 detected, not a build failure.
 
+### Verifying Rendering Changes (Agent Workflow)
+
+Rendering work must be **run and inspected**, not only compiled: the pipeline is
+multi-pass, feature-flag driven and version dependent, and most regressions (state leaks,
+wrong buffers, flicker) only show up at draw time. The following workflow is what an agent
+should use, in order.
+
+**1. Build *and install* the target for the mode under test.** Each mode owns a build tree
+and an SDK prefix, so a library edit is only visible after `install`:
+
+```bash
+# core (desktop GL3):  build/verse_core -> build/sdk_core
+cmake --build build/verse_core --target osgVerse_Viewer -j8
+cmake --build build/verse_core --target install -j8
+# compat (desktop GL2): build/verse_def  -> build/sdk
+cmake --build build/verse_def  --target osgVerse_Viewer -j8
+cmake --build build/verse_def  --target install -j8
+```
+
+Run the installed binary from `build/sdk_<mode>/bin` (RPATH is `$ORIGIN:$ORIGIN/..:
+$ORIGIN/../lib`). Check `CMAKE_INSTALL_PREFIX` in the mode's `CMakeCache.txt` if unsure.
+
+**2. Drive the viewer head-lessly-ish and capture images.** `configureViewerForAgent()`
+(`pipeline/Utilities.h`, impl `pipeline/UtilitiesEx.cpp`) turns any test or the viewer into
+a scriptable case: it renders N frames, presses optional keys, writes PNGs and quits. It is
+already wired into `viewer`, `pipeline_test`, `shadow_test`, `many_lights_test` and
+`forward_pbr_test`:
+
+```bash
+cd build/sdk_core/bin
+./osgVerse_Viewer --agent --agent-frames 90 --agent-size 1280 720 \
+    --agent-eye 0 0 120 --agent-center 0 0 0 \
+    --agent-keys "c" --agent-output /tmp/shot
+# -> /tmp/shot_<index>.png, then the process exits
+```
+
+Options: `--agent`/`--ai` enable it; `--agent-frames N` (default 60); `--agent-output PREFIX`;
+`--agent-fps N` (`0` = every frame); `--agent-eye/--agent-center/--agent-up X Y Z`;
+`--agent-size W H`; `--agent-keys "c,s"` (single chars or numeric key codes, pressed a couple
+of frames before the capture so their effect is in the image); `--agent-keep` (don't quit).
+`--agent-keys` is how you A/B a feature in one run: e.g. `many_lights_test` toggles light
+clustering with `[C]`, animation with `[A]`, light wireframe with `[L]`.
+
+For a plain `timeout N ./osgVerse_Viewer` run (no `--agent`), the window is still created on
+the machine's display; redirect the log to a file and inspect it as below.
+
+**3. Turn the log into a pass/fail signal.** Rendering bugs surface as repeated driver
+messages long before they are visible. Count and classify them:
+
+```bash
+grep -c  "invalid enumerant"        /tmp/viewer.log   # must NOT scale with frames
+grep -oE "after applying GLMode 0x[0-9a-f]+" /tmp/viewer.log | sort | uniq -c
+grep -n  "AlphaFunc::apply\|Invalid primitive mode\|not supported" /tmp/viewer.log
+```
+
+Compare against a case known to be clean (e.g. `osgVerse_Test_Many_Lights`) to separate
+pre-existing noise from a regression: a handful of notices on the first realized frames is
+normal; a count that grows every frame is the bug.
+
+**4. Localize a GL error to the call that produced it.** OSG's default is
+`ONCE_PER_FRAME`; set `OSG_GL_ERROR_CHECKING=ONCE_PER_ATTRIBUTE` to make it report the
+attribute/mode right after which the error was raised:
+
+```bash
+OSG_GL_ERROR_CHECKING=ONCE_PER_ATTRIBUTE ./osgVerse_Viewer 2>&1 | grep "invalid enumerant"
+# e.g. "... after applying GLMode 0xde1"  -> GL_TEXTURE_2D enable is the culprit
+```
+
+**5. Use an `LD_PRELOAD` GL shim when the error is not inside `State::apply`.** Hook
+`glEnable`/`glDisable`/`glDrawArrays`/`glDrawElements`/`glTexBuffer`/`glBindBuffer` (and,
+if needed, OSG's mangled `osg::State::apply(StateSet*)` / `osg::State::applyMode`) and
+print a `backtrace()` when a removed enum is seen. This is what identified the
+`GL_QUADS`, `GL_TEXTURE_2D` and `GL_NORMALIZE` sources. `nm -D` the `.so` and keep it in
+`/tmp` — it is a diagnostic tool, not part of the build.
+
+**6. Use the engine's own GL debug callback.** `pipeline/PipelineStandard.cpp` sets up
+`glDebugMessageCallback` (KHR_debug) in `RealizeOperation` for GL3 builds and prints each
+unique message once (`[GLDebug HIGH/MEDIUM/...]`), with a repeat counter to avoid flooding.
+If you see no `[GLDebug]` line while `invalid enumerant` still appears, the callback is not
+being installed (check that `RealizeOperation` actually runs on the presenting context) —
+that is itself a bug worth fixing, as the driver message names the offending call.
+
+**7. Diff images for a visual regression.** Capture the same view with the feature ON and
+OFF (`--agent-keys`, `--no-shadows`, `--no-ssao`, `--no-bloom`, `--no-cluster`,
+`--cluster-tile`, `--cluster-slices`, ...), then compare the PNGs pixel-wise. A non-zero
+diff is expected where the feature is visible; a diff *outside* that region is a
+regression. `osgVerse::ScreenSnapshotCallback` (`pipeline/Utilities.h`) can be attached
+directly to a camera's `FINAL_DRAW` when a test needs custom capture timing.
+
+**8. Confirm the correct camera is being watched.** The main camera is detached in a
+pipeline viewer (see "Presentation detail" above); attach snapshot/debug callbacks to the
+last slave with a graphics context, or to the specific stage camera
+(`pipeline->getStage("Lighting")->camera`), never to `viewer.getCamera()` by default.
+
 ## Development Conventions
 
 ### Adding a New Library
@@ -353,10 +447,58 @@ Use export macros for cross-platform compatibility:
 
 ### Pipeline Architecture
 The rendering pipeline uses a stage-based architecture:
-- `Pipeline`: Main orchestrator; owns stages, modules, and framebuffer graph
-- `Pipeline::Stage`: Individual render pass (GBuffer, shadow, forward, final...)
-- Modules extend behavior: `ShadowModule`, `LightModule`, `UserInputModule`
-- `StandardPipelineParameters`: config struct passed to `Pipeline::setup()`
+- `Pipeline` (`pipeline/Pipeline.h/cpp`): Main orchestrator; owns the ordered list of
+  `Stage`s, the registered modules, the framebuffer graph and the GL/GLSL version state
+- `Pipeline::Stage`: one render pass. `Stage::outputs` is a `name -> osg::Texture` map
+  (the buffers it produces), `Stage::getOrCreateStateSet()` gives the state set to set
+  its program/inputs on. A `Stage` is normally an `osg::Camera`, but a deferred stage is
+  an RTT `RttGeometryRunner` (see below)
+- Modules extend behavior: `LightModule`, `ShadowModule`, `UserInputModule`. Each
+  registers itself with `pipeline->addModule(name, this)` (names: `"Light"`, `"Shadow"`,
+  and the user-input module) and gets `getModule("Light")` / `getModule("Shadow")`
+- `StandardPipelineParameters` (`pipeline/Pipeline.h`): config struct passed to
+  `setupStandardPipeline()`; carries masks, shadow settings, SSAO/bloom/TAA toggles,
+  `enableUserInput`, resolution, etc.
+
+**Stage helpers and typical order.** `setupStandardPipeline()` builds the graph with
+`addInputStage()`, `addWorkStage()`, `addDeferredStage()`, `addDisplayStage()` in roughly
+this order (exact set depends on the parameters):
+
+```
+GBuffer (input, mask = deferredMask)
+  -> Ssao -> SsaoBlur1 -> SsaoBlur2            (when enableAO)
+  -> Lighting                                   (consumes the G-buffer + light table)
+  -> Shadowing                                  (shadow combine; when shadows are on)
+  -> [user "Forward" input stage]               (added by addUserInputStage())
+  -> [Brighting -> downsample chain -> combining]  (when enableBloom)
+  -> DeferredSky                                (when useDeferredSky / TAA is on)
+  -> ToneMapping -> AntiAliasing (FXAA or TAA) -> Final (display stage)
+```
+
+**Pipeline masks** decide which pass draws which node — set them with
+`Pipeline::setPipelineMask(node, mask)`; several masks can be OR-ed:
+
+| Mask | Value | Meaning |
+|------|-------|---------|
+| `DEFERRED_SCENE_MASK` | `0xff000000` | opaque geometry fed to the G-buffer |
+| `FORWARD_SCENE_MASK` | `0x000000ff` | geometry drawn in forward passes (sky, HUD, 3DGS) |
+| `SHADOW_CASTER_MASK` | `0x00100000` | geometry rendered into the shadow maps |
+| `CUSTOM_INPUT_MASK` | `0x00010000` | geometry for a custom/user input stage |
+
+**Presentation detail (important when debugging "nothing shows up").** In a pipeline
+viewer the *main* camera is detached (`mainCam->setGraphicsContext(NULL)`); the image on
+screen is produced by the last `View::Slave` that still owns a graphics context (the
+forward pass or the final stage). Anything that must act on the real back buffer — a
+snapshot callback, a `glEnable`, a debug hook — has to go on that slave camera, not on
+`viewer.getCamera()`. `configureViewerForAgent()` scans the slaves in reverse for exactly
+this reason.
+
+**Deferred vs work stages.** Deferred stages use `osgVerse::DeferredRenderCallback`
+(`pipeline/DeferredCallback.h/cpp`): their work is done by an `RttGeometryRunner`
+geometry, so `Stage::getOrCreateStateSet()` returns the *geometry's* state set and the
+stage's outputs are the RTT textures of that runner. Work stages are plain
+`osg::Camera`s. `Pipeline::getDeferredCallback()` gives access to the shared callback
+(and to `isJitterEnabled()` for TAA).
 
 **Integration pattern (all examples/tests use it):** subclass `osgViewer::Viewer`,
 override `createRenderer(camera)` and return `pipeline->createRenderer(camera)`.
@@ -376,6 +518,94 @@ GLES and WebGL. Without these macros shaders will fail on ES/WASM.
 each test/plugin must call `USE_OSG_PLUGINS()`, `USE_VERSE_PLUGINS()`, and
 `USE_GRAPICSWINDOW_IMPLEMENTATION(SDL/GLFW)` at the top of `main()` or plugins
 won't load. See `tests/pipeline_test.cpp` for the exact `#ifdef` block.
+
+### Light & Shadow Systems
+
+**LightModule + LightCluster (`pipeline/LightModule.*`, `pipeline/LightCluster.*`).** The
+light parameter table is uploaded either as an `osg::TextureBuffer` (TBO, read with
+`samplerBuffer`/`texelFetch`) or as a legacy `Texture2D`. The default is chosen from the
+*runtime* GL/GLSL versions via `isTextureBufferSupported(glVer, glslVer)`
+(`glVersion >= 310 && glslVersion >= 140`, `pipeline/Pipeline.h`), so a desktop GL3 core
+context **and** a compatibility-profile context on a modern driver both get TBO, while
+GLES2/WebGL1 keeps Texture2D. Force it with `LightModule::setUseTextureBuffer()`.
+`ShaderLibrary::createShaderDefinitions()` emits the matching `VERSE_LIGHT_BUFFER` /
+`VERSE_LIGHT_CLUSTER` defines from the same runtime versions, so the shader path and the
+upload path can never disagree.
+
+Clustered light culling is on by default whenever the TBO path is active
+(`LightCluster::setEnabled()`, `LightModule::setClusterEnabled()`). It splits the screen
+into tiles x logarithmic depth slices (grid size depends on tile pixels and slice count,
+e.g. 128 px / 16 slices covers a 1920x1080 view with ~15x9x16 = 2160 clusters). Two
+`osg::TextureBuffer`s are produced: a per-entry light-index buffer (`GL_R32F`, read with
+`texelFetch`) and a per-cluster `(offset, count)` buffer. Uniforms: `LightNumber`,
+`LightClusterEnabled`, `LightClusterGrid`, `LightClusterTile`. `setMaxLightsInPass()` must
+cover the total light count (main light + dynamic lights) or the extra lights are dropped.
+
+**ShadowModule (`pipeline/ShadowModule.*`).** Techniques are selected with
+`setTechnique()` and **must be set before `createStages()`**: `DefaultSM`, `BandPCF`,
+`PossionPCF`, `VSM`, `ESM`, `EVSM` (see `ShadowModule::TechniqueItem`). Several cascades
+are packed by view range, and the VSM/EVSM paths add a blur chain the receiver-side combine
+shader consumes. `shadowNumber`, `shadowResolution` and the bias/exponent parameters come
+from `StandardPipelineParameters`.
+
+### GL Core Profile & Fixed-Function State
+
+A desktop GL core profile (and GLES/WebGL) has **removed** the whole fixed-function
+pipeline: the fixed-function texture enables (`GL_TEXTURE_1D/2D/3D/CUBE_MAP`,
+`GL_TEXTURE_RECTANGLE`), `GL_NORMALIZE`, `GL_ALPHA_TEST`/`AlphaFunc`, `GL_LIGHTING`,
+`GL_FOG`, `GL_COLOR_MATERIAL`, `GL_AUTO_NORMAL`, `GL_TEXTURE_GEN_*`, the smoothing modes
+(`GL_POINT_SMOOTH`, `GL_LINE_SMOOTH`, `GL_POLYGON_SMOOTH`) and the legacy `GL_CLIP_PLANE0-5`.
+Enabling any of them makes the driver report `invalid enumerant` **for every draw that uses
+the state set**, which floods the log (tens of thousands of lines) — and
+`osg::AlphaFunc::apply()` even prints `not supported`.
+
+The removal is done **once at load time**, not at draw time, by
+`osgVerse::FixedFunctionOptimizer` (`readerwriter/Utilities.h/cpp`): `ModeChecker` keeps
+only the modes that are still legal for the current build, and `removeUnusedStateAttributes()`
+also drops the fixed-function texture modes, `TEXENV`/`TEXGEN`/`TEXMAT`, `AlphaFunc`,
+`Material` (converted to a color array), `Fog`, `Light*`, `ShadeModel`, and fixes old
+compressed-image internal formats. It is invoked automatically through the global
+`ReadFileCallback` — **but only when `FixedFunctionRemoval` is part of the init flags**:
+
+```cpp
+// readerwriter/Utilities.h
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+    DefaultParameters = FixedFunctionRemoval | TangentCreation | GaussianSorting
+#else
+    DefaultParameters = TangentCreation | GaussianSorting   // desktop GL2: keep it working
+#endif
+```
+
+Rules of thumb:
+- Pass `osgVerse::defaultInitParameters()` (or `osgVerse::DefaultParameters`) to
+  `globalInitialize()`; do **not** hand-build the flags with just
+  `TangentCreation | GaussianSorting`, or loaded models keep their legacy state and the
+  core-profile build floods with `invalid enumerant`.
+- If some state is still not handled, extend `FixedFunctionOptimizer` /
+  `ModeChecker` in `readerwriter/Utilities.cpp` — do not add a second removal pass.
+- State sets created **by the engine at runtime** never go through the load-time
+  optimizer, so bind them with `osgVerse::applyTextureAttributeAndModes()`
+  (`pipeline/Utilities.h`) instead of `StateSet::setTextureAttributeAndModes()`: in a
+  GL3/GLES build it sets the texture attribute without the removed enable (and it never
+  sets a mode for a buffer texture).
+- The only accepted core-profile error report is the handful of one-time notices during
+  the first realized frames (also present in the clean test cases); a repeating report is
+  a real bug.
+
+### Known Pitfalls
+
+- **`osg::TextureBuffer` + `setImage()` needs `dirtyTextureObject()`.** `apply()` calls
+  `glTexBuffer()` only when the GL texture object is first created; `setImage()`
+  (through `setBufferData()`) swaps the `BufferData`/`BufferObject` without touching the
+  texture object. The texture then keeps sampling the *previous* buffer forever. Whenever
+  a buffer texture's storage is re-allocated (e.g. `LightCluster::ensureIndexCapacity`),
+  call `dirtyTextureObject()` afterwards or the shader reads stale data — which shows up
+  as cluster-shaped artifacts that appear once the buffer grows and never go away.
+- **Never set a fixed-function texture enable for a TBO** (`GL_TEXTURE_BUFFER` is not a
+  valid `glEnable` target); see `applyTextureAttributeAndModes()`.
+- **Landing a change in the right place:** after editing a library or a test you must
+  rebuild *and* `install` the mode's build tree, otherwise `build/sdk_<mode>` keeps the
+  stale binaries and the old behaviour.
 
 ### Serialization Wrappers (wrappers/)
 Custom osgVerse classes are serialized through `osgDB::ObjectWrapper`

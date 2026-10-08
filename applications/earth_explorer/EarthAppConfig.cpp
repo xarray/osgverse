@@ -13,22 +13,26 @@ namespace earthee
 {
     namespace
     {
-        // 内置默认:朋友版 earth_main.cpp 中验证过的在线公共图源。
-        // Terrarium 高程走 ".png.verse_terrain" 伪扩展 → osgdb_terrain 插件解码。
+        // Built-in defaults: public online tile sources reachable without a key.
+        // AutoNavi (GaoDe) satellite imagery is used by default because it is
+        // directly reachable in mainland China (Google's endpoints are not).
+        // Elevation is left empty by default so the globe is a clean ellipsoid
+        // and startup never waits on a terrain endpoint; set globe.elevation in
+        // the config to enable terrain.
         const char* kDefaultOrthophoto =
-            "https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z}";
-        const char* kDefaultElevation =
-            "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png.verse_terrain";
+            "https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z}";
+        const char* kDefaultElevation = "";
 
-        // ---- JSON 取值小助手:字段缺失/类型不符时返回默认值并在控制台告警 ----
+        // ---- Small JSON accessors: on missing/mismatched fields return the
+        //      default value and print a console warning ----
         std::string getString(const picojson::object& obj, const char* key,
                               const std::string& defVal, const char* ctx)
         {
             picojson::object::const_iterator it = obj.find(key);
             if (it == obj.end()) return defVal;
             if (!it->second.is<std::string>())
-            { OSG_WARN << "[EarthConfig] " << u8"配置项 " << ctx << "." << key
-                       << u8" 类型应为字符串,已忽略\n"; return defVal; }
+            { OSG_WARN << "[EarthConfig] config item " << ctx << "." << key
+                       << " should be a string, ignored\n"; return defVal; }
             return it->second.get<std::string>();
         }
 
@@ -38,8 +42,8 @@ namespace earthee
             picojson::object::const_iterator it = obj.find(key);
             if (it == obj.end()) return defVal;
             if (!it->second.is<double>())
-            { OSG_WARN << "[EarthConfig] " << u8"配置项 " << ctx << "." << key
-                       << u8" 类型应为数字,已忽略\n"; return defVal; }
+            { OSG_WARN << "[EarthConfig] config item " << ctx << "." << key
+                       << " should be a number, ignored\n"; return defVal; }
             return it->second.get<double>();
         }
 
@@ -49,8 +53,8 @@ namespace earthee
             picojson::object::const_iterator it = obj.find(key);
             if (it == obj.end()) return defVal;
             if (!it->second.is<bool>())
-            { OSG_WARN << "[EarthConfig] " << u8"配置项 " << ctx << "." << key
-                       << u8" 类型应为布尔,已忽略\n"; return defVal; }
+            { OSG_WARN << "[EarthConfig] config item " << ctx << "." << key
+                       << " should be a boolean, ignored\n"; return defVal; }
             return it->second.get<bool>();
         }
 
@@ -67,7 +71,7 @@ namespace earthee
             sc.id = getString(s, "id", "", "data_sources[]");
             sc.type = getString(s, "type", sc.id, "data_sources[]");
             sc.displayName = getString(s, "name", sc.id, "data_sources[]");
-            sc.group = getString(s, "group", u8"实时数据 / Live", "data_sources[]");
+            sc.group = getString(s, "group", "Live Data / Live", "data_sources[]");
             sc.subtitle = getString(s, "subtitle", "", "data_sources[]");
             sc.url = getString(s, "url", "", "data_sources[]");
             sc.keyEnv = getString(s, "key_env", "", "data_sources[]");
@@ -86,7 +90,8 @@ namespace earthee
     {
         std::vector<AIProviderConfig> list;
 
-        // DeepSeek:OpenAI 兼容协议,国内直连、性价比高,作为默认首选
+        // DeepSeek: OpenAI-compatible protocol, directly reachable in China and
+        // cost effective, so it is the default first choice.
         AIProviderConfig deepseek;
         deepseek.name = "deepseek";
         deepseek.type = "openai_compatible";
@@ -96,7 +101,8 @@ namespace earthee
         deepseek.keyConfig = "deepseek";
         list.push_back(deepseek);
 
-        // Gemini:Google generateContent 协议(朋友版遗留,海外网络可达时可用)
+        // Gemini: Google generateContent protocol (legacy from the reference
+        // version; usable when an overseas network is available).
         AIProviderConfig gemini;
         gemini.name = "gemini";
         gemini.type = "gemini";
@@ -124,11 +130,11 @@ namespace earthee
         static std::set<std::string> s_reported;
         if (s_reported.insert(p.name).second)
         {
-            OSG_WARN << "[EarthConfig] " << u8"AI 供应商 " << p.name
-                     << u8" 缺少 API Key(环境变量 "
-                     << (p.keyEnv.empty() ? "-" : p.keyEnv) << u8" / 配置 api_keys."
+            OSG_WARN << "[EarthConfig] AI provider " << p.name
+                     << " is missing its API Key (environment variable "
+                     << (p.keyEnv.empty() ? "-" : p.keyEnv) << " / config api_keys."
                      << (p.keyConfig.empty() ? "-" : p.keyConfig)
-                     << u8" 均未设置),该供应商将禁用\n";
+                     << " are both unset), this provider will be disabled\n";
         }
         return "";
     }
@@ -139,27 +145,27 @@ namespace earthee
 
         SourceConfig gdacs;
         gdacs.id = "gdacs"; gdacs.type = "gdacs";
-        gdacs.displayName = u8"灾害预警 (GDACS)";
-        gdacs.group = u8"实时数据 / Live";
-        gdacs.subtitle = u8"GDACS · UN 全球灾害预警";
+        gdacs.displayName = "Disaster Alerts (GDACS)";
+        gdacs.group = "Live Data / Live";
+        gdacs.subtitle = "GDACS - UN global disaster alerts";
         gdacs.url = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP";
         gdacs.refreshSeconds = 600;
         list.push_back(gdacs);
 
         SourceConfig usgs;
         usgs.id = "quakes"; usgs.type = "usgs";
-        usgs.displayName = u8"地震 (USGS)";
-        usgs.group = u8"实时数据 / Live";
-        usgs.subtitle = u8"USGS · 近24小时 M2.5+ 地震";
+        usgs.displayName = "Earthquakes (USGS)";
+        usgs.group = "Live Data / Live";
+        usgs.subtitle = "USGS - M2.5+ earthquakes in the last 24 hours";
         usgs.url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson";
         usgs.refreshSeconds = 300;
         list.push_back(usgs);
 
         SourceConfig eonet;
         eonet.id = "eonet"; eonet.type = "eonet";
-        eonet.displayName = u8"自然事件 (NASA EONET)";
-        eonet.group = u8"实时数据 / Live";
-        eonet.subtitle = u8"NASA EONET · 活跃自然事件";
+        eonet.displayName = "Natural Events (NASA EONET)";
+        eonet.group = "Live Data / Live";
+        eonet.subtitle = "NASA EONET - active natural events";
         eonet.url = "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=200";
         eonet.refreshSeconds = 900;
         list.push_back(eonet);
@@ -173,8 +179,8 @@ namespace earthee
         if (arguments.read("--config", explicitPath))
         {
             if (!osgDB::fileExists(explicitPath))
-                OSG_WARN << "[EarthConfig] --config 指定的文件不存在: " << explicitPath
-                         << ",将尝试默认搜索路径\n";
+                OSG_WARN << "[EarthConfig] file given by --config does not exist: " << explicitPath
+                         << ", falling back to the default search path\n";
         }
 
         std::string candidates[3] = { explicitPath,
@@ -193,10 +199,10 @@ namespace earthee
 
         if (content.empty())
         {
-            OSG_WARN << "[EarthConfig] " << u8"未找到 earth_explorer.json(搜索过 --config / "
-                     << BASE_DIR << "/misc/ / 当前目录)," << u8"使用内置默认配置:\n"
-                     << "[EarthConfig]   " << u8"底图 = Google 卫星图, 高程 = AWS Terrarium, "
-                        u8"数据源 = GDACS / USGS / EONET\n";
+            OSG_WARN << "[EarthConfig] earth_explorer.json not found (searched --config / "
+                     << BASE_DIR << "/misc/ / current directory), using built-in defaults:\n"
+                     << "[EarthConfig]   imagery = AutoNavi (GaoDe) satellite, elevation = none, "
+                        "data sources = GDACS / USGS / EONET\n";
             cfg.sources = defaultSourceConfigs();
             cfg.ai.providers = defaultAIProviderConfigs();
             return cfg;
@@ -206,8 +212,8 @@ namespace earthee
         std::string err = picojson::parse(root, content);
         if (!err.empty() || !root.is<picojson::object>())
         {
-            OSG_WARN << "[EarthConfig] " << u8"配置文件解析失败(" << pathUsed << "): "
-                     << (err.empty() ? u8"根节点不是对象" : err) << u8",使用内置默认配置\n";
+            OSG_WARN << "[EarthConfig] failed to parse config file (" << pathUsed << "): "
+                     << (err.empty() ? "root node is not an object" : err) << ", using built-in defaults\n";
             cfg.sources = defaultSourceConfigs();
             cfg.ai.providers = defaultAIProviderConfigs();
             return cfg;
@@ -215,9 +221,9 @@ namespace earthee
 
         cfg.loaded = true; cfg.path = pathUsed;
         const picojson::object& rootObj = root.get<picojson::object>();
-        OSG_NOTICE << "[EarthConfig] 已加载配置: " << pathUsed << "\n";
+        OSG_NOTICE << "[EarthConfig] loaded config: " << pathUsed << "\n";
 
-        // ---- globe 段 ----
+        // ---- globe section ----
         if (const picojson::object* globe = getObject(rootObj, "globe"))
         {
             cfg.orthophotoTemplate = getString(*globe, "orthophoto", kDefaultOrthophoto, "globe");
@@ -230,23 +236,23 @@ namespace earthee
         }
         else
         {
-            OSG_WARN << "[EarthConfig] " << u8"缺少 globe 段,底图/高程使用内置默认\n";
+            OSG_WARN << "[EarthConfig] missing globe section, using built-in imagery/elevation defaults\n";
             cfg.orthophotoTemplate = kDefaultOrthophoto;
             cfg.elevationTemplate = kDefaultElevation;
         }
 
-        // ---- city 段 ----
+        // ---- city section ----
         if (const picojson::object* city = getObject(rootObj, "city"))
         {
             cfg.cityEnabled = getBool(*city, "enabled", false, "city");
             cfg.cityFolder = getString(*city, "folder", "", "city");
         }
 
-        // ---- ui 段 ----
+        // ---- ui section ----
         if (const picojson::object* ui = getObject(rootObj, "ui"))
             cfg.fontPath = getString(*ui, "font", "", "ui");
 
-        // ---- api_keys 段 ----
+        // ---- api_keys section ----
         if (const picojson::object* keys = getObject(rootObj, "api_keys"))
         {
             for (picojson::object::const_iterator it = keys->begin(); it != keys->end(); ++it)
@@ -256,7 +262,7 @@ namespace earthee
             }
         }
 
-        // ---- data_sources 段 ----
+        // ---- data_sources section ----
         picojson::object::const_iterator dsIt = rootObj.find("data_sources");
         if (dsIt != rootObj.end() && dsIt->second.is<picojson::array>())
         {
@@ -264,23 +270,23 @@ namespace earthee
             for (size_t i = 0; i < arr.size(); ++i)
             {
                 if (!arr[i].is<picojson::object>())
-                { OSG_WARN << "[EarthConfig] data_sources[" << i << "] " << u8"不是对象,已跳过\n"; continue; }
+                { OSG_WARN << "[EarthConfig] data_sources[" << i << "] is not an object, skipped\n"; continue; }
                 SourceConfig sc = parseSource(arr[i].get<picojson::object>());
                 if (sc.id.empty() || sc.url.empty())
-                { OSG_WARN << "[EarthConfig] data_sources[" << i << "] " << u8"缺少 id 或 url,已跳过\n"; continue; }
+                { OSG_WARN << "[EarthConfig] data_sources[" << i << "] is missing id or url, skipped\n"; continue; }
                 cfg.sources.push_back(sc);
             }
             if (cfg.sources.empty())
-                OSG_WARN << "[EarthConfig] data_sources " << u8"为空,界面数据源面板将全部不可用\n";
+                OSG_WARN << "[EarthConfig] data_sources is empty, the data source panel will be entirely unavailable\n";
         }
         else
         {
-            OSG_WARN << "[EarthConfig] " << u8"缺少 data_sources 段,使用内置默认数据源"
+            OSG_WARN << "[EarthConfig] missing data_sources section, using built-in defaults"
                         "(GDACS / USGS / EONET)\n";
             cfg.sources = defaultSourceConfigs();
         }
 
-        // ---- ai 段(AI 助手;缺失 = 内置默认供应商,缺 key 只禁用对应家)----
+        // ---- ai section (AI assistant; missing = built-in providers, a missing key only disables that provider) ----
         if (const picojson::object* ai = getObject(rootObj, "ai"))
         {
             cfg.ai.enabled = getBool(*ai, "enabled", true, "ai");
@@ -297,7 +303,7 @@ namespace earthee
                     if (!it->second.is<picojson::object>())
                     {
                         OSG_WARN << "[EarthConfig] ai.providers." << it->first
-                                 << u8" 不是对象,已跳过\n";
+                                 << " is not an object, skipped\n";
                         continue;
                     }
                     const picojson::object& po = it->second.get<picojson::object>();
@@ -313,21 +319,21 @@ namespace earthee
                     pc.timeoutSeconds = (int)getNumber(po, "timeout_seconds", 60.0, ctx.c_str());
                     if (pc.type.empty())
                     {
-                        OSG_WARN << "[EarthConfig] " << ctx << " " << u8"缺少 type"
-                                    "(openai_compatible / gemini / fake),已跳过\n";
+                        OSG_WARN << "[EarthConfig] " << ctx << " is missing type"
+                                    "(openai_compatible / gemini / fake), skipped\n";
                         continue;
                     }
                     if (pc.type != "fake" && pc.model.empty())
-                    { OSG_WARN << "[EarthConfig] " << ctx << " " << u8"缺少 model,已跳过\n"; continue; }
+                    { OSG_WARN << "[EarthConfig] " << ctx << " is missing model, skipped\n"; continue; }
                     if (pc.timeoutSeconds <= 0) pc.timeoutSeconds = 60;
                     cfg.ai.providers.push_back(pc);
                 }
                 if (cfg.ai.providers.empty())
-                    OSG_WARN << "[EarthConfig] ai.providers " << u8"为空,AI 助手将不可用\n";
+                    OSG_WARN << "[EarthConfig] ai.providers is empty, the AI assistant will be unavailable\n";
             }
             else
             {
-                OSG_WARN << "[EarthConfig] " << u8"缺少 ai.providers 段,使用内置默认"
+                OSG_WARN << "[EarthConfig] missing ai.providers section, using built-in defaults"
                             "(deepseek / gemini)\n";
                 cfg.ai.providers = defaultAIProviderConfigs();
             }
@@ -335,8 +341,8 @@ namespace earthee
         else
         {
             cfg.ai.providers = defaultAIProviderConfigs();
-            OSG_NOTICE << "[EarthConfig] " << u8"未配置 ai 段,使用内置默认 AI 供应商"
-                          "(deepseek / gemini,缺 key 自动禁用)\n";
+            OSG_NOTICE << "[EarthConfig] ai section not configured, using built-in AI providers"
+                          "(deepseek / gemini, auto-disabled when the key is missing)\n";
         }
         return cfg;
     }
@@ -354,13 +360,13 @@ namespace earthee
             std::map<std::string, std::string>::const_iterator it = cfg.apiKeys.find(src.keyConfig);
             if (it != cfg.apiKeys.end() && !it->second.empty()) return it->second;
         }
-        static std::set<std::string> s_reported;  // 每个 key 只告警一次
+        static std::set<std::string> s_reported;  // warn only once per key
         if (s_reported.insert(src.id).second)
         {
-            OSG_WARN << "[EarthConfig] " << u8"数据源 " << src.id << u8" 缺少 API Key(环境变量 "
-                     << (src.keyEnv.empty() ? "-" : src.keyEnv) << u8" / 配置 api_keys."
+            OSG_WARN << "[EarthConfig] data source " << src.id << " is missing its API Key (environment variable "
+                     << (src.keyEnv.empty() ? "-" : src.keyEnv) << " / config api_keys."
                      << (src.keyConfig.empty() ? "-" : src.keyConfig)
-                     << u8" 均未设置),该源将被禁用\n";
+                     << " are both unset), this source will be disabled\n";
         }
         return "";
     }

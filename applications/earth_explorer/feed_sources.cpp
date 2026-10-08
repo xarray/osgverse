@@ -1,7 +1,8 @@
-// 内置数据源实现:GDACS 灾害 / USGS 地震 / NASA EONET 自然事件。
-// 每个源 = HttpJsonSource 子类(只实现 parsePoints),经 DataSourceFactory 注册——
-// 配置文件 data_sources[].type 据此实例化,新增源零侵入。
-// 解析逻辑移植自朋友版 feeds/gdacs_feed.cpp 等(真实响应形状已核实)。
+// Built-in data source implementations: GDACS disasters / USGS earthquakes / NASA EONET natural events.
+// Each source = an HttpJsonSource subclass (implementing only parsePoints), registered through
+// DataSourceFactory — the config file's data_sources[].type instantiates accordingly, so adding a
+// source is zero-intrusion.
+// The parsing logic is ported from the friend's feeds/gdacs_feed.cpp etc. (real response shapes verified).
 #include "DataSource.h"
 #include "marker_style.h"
 #include <cstdio>
@@ -11,7 +12,7 @@ namespace earthds
 {
     namespace
     {
-        // ISO8601(如 "2026-06-29T11:35:33",UTC)→ Unix 秒;失败返回 0
+        // ISO8601 (e.g. "2026-06-29T11:35:33", UTC) -> Unix seconds; returns 0 on failure
         long long parseIso8601(const std::string& s)
         {
             struct tm t = tm();
@@ -46,9 +47,10 @@ namespace earthds
             return v.is<std::string>() ? v.get<std::string>() : std::string();
         }
 
-        // ===== GDACS(UN 全球灾害预警)=====
-        // 响应是 FeatureCollection,但每个事件的多边形/连线等几何各占一条 Feature,
-        // 只有 Class == "Point_Centroid" 是代表点;Green(非紧急)级别过滤不显示。
+        // ===== GDACS (UN global disaster alerts) =====
+        // The response is a FeatureCollection, but each event's polygon/polyline geometries each
+        // take one Feature; only Class == "Point_Centroid" is the representative point; the Green
+        // (non-urgent) level is filtered out and not shown.
         class GdacsSource : public HttpJsonSource
         {
         public:
@@ -69,7 +71,7 @@ namespace earthds
                     const picojson::value& geom = f.get("geometry");
                     const picojson::value& props = f.get("properties");
                     if (!geom.is<picojson::object>() || !props.is<picojson::object>()) continue;
-                    if (strField(props, "Class") != "Point_Centroid") continue;  // 去重
+                    if (strField(props, "Class") != "Point_Centroid") continue;  // deduplicate
 
                     const picojson::value& coords = geom.get("coordinates");
                     if (!coords.is<picojson::array>()) continue;
@@ -80,7 +82,7 @@ namespace earthds
                     osg::Vec4 color; float sizePx;
                     if (lvl == "Red") { color = osg::Vec4(1.0f, 0.25f, 0.2f, 1.0f); sizePx = 16.0f; }
                     else if (lvl == "Orange") { color = osg::Vec4(1.0f, 0.65f, 0.15f, 1.0f); sizePx = 12.0f; }
-                    else continue;  // Green / 未知级别:不显示
+                    else continue;  // Green / unknown level: do not show
 
                     std::string etype = strField(props, "eventtype");
                     std::string country = strField(props, "country");
@@ -92,10 +94,10 @@ namespace earthds
                     DataPoint p;
                     p.lon = c[0].get<double>(); p.lat = c[1].get<double>();
                     p.color = color; p.sizePx = sizePx;
-                    p.title = std::string(eventTypeText(etype)) + u8" \xc2\xb7 "
-                            + (country.empty() ? u8"未知" : country);
-                    p.detail = u8"等级 Level: " + lvl + u8"\n时间 Time: " + fromdate;
-                    if (!sevText.empty()) p.detail += u8"\n影响 Impact: " + sevText;
+                    p.title = std::string(eventTypeText(etype)) + u8" - "
+                            + (country.empty() ? u8"Unknown" : country);
+                    p.detail = u8"Level: " + lvl + u8"\nTime: " + fromdate;
+                    if (!sevText.empty()) p.detail += u8"\nImpact: " + sevText;
                     pts.push_back(p);
                 }
                 return true;
@@ -104,14 +106,14 @@ namespace earthds
         private:
             static const char* eventTypeText(const std::string& t)
             {
-                if (t == "EQ") return u8"地震"; if (t == "TC") return u8"热带气旋";
-                if (t == "FL") return u8"洪水"; if (t == "VO") return u8"火山";
-                if (t == "WF") return u8"野火"; if (t == "DR") return u8"干旱";
-                return u8"灾害";
+                if (t == "EQ") return u8"Earthquake"; if (t == "TC") return u8"Tropical Cyclone";
+                if (t == "FL") return u8"Flood"; if (t == "VO") return u8"Volcano";
+                if (t == "WF") return u8"Wildfire"; if (t == "DR") return u8"Drought";
+                return u8"Disaster";
             }
         };
 
-        // ===== USGS 地震(M2.5+,最近 24 小时)=====
+        // ===== USGS earthquakes (M2.5+, last 24 hours) =====
         class UsgsSource : public HttpJsonSource
         {
         public:
@@ -146,7 +148,7 @@ namespace earthds
                     if (timeV.is<double>()) unixMs = timeV.get<double>();
                     double depthKm = c[2].is<double>() ? c[2].get<double>() : 0.0;
 
-                    // 震级 → 大小/颜色(紫环,震级越高越亮越大)
+                    // magnitude -> size/color (purple ring, higher magnitude = brighter and larger)
                     float magF = (float)osg::clampBetween(mag, 2.5, 9.5);
                     DataPoint p;
                     p.lon = c[0].get<double>(); p.lat = c[1].get<double>();
@@ -154,10 +156,10 @@ namespace earthds
                     float t = (magF - 2.5f) / 7.0f;
                     p.color = osg::Vec4(0.45f + 0.35f * t, 0.25f + 0.25f * t, 1.0f, 1.0f);
                     char buf[64]; snprintf(buf, sizeof(buf), "M%.1f", mag);
-                    p.title = std::string(buf) + u8" \xc2\xb7 "
-                            + (place.empty() ? u8"未知" : place);
-                    p.detail = u8"震级 Magnitude: " + std::string(buf) + u8"\n深度 Depth: "
-                              + std::to_string((int)depthKm) + u8" km\n时间 Time: "
+                    p.title = std::string(buf) + u8" - "
+                            + (place.empty() ? u8"Unknown" : place);
+                    p.detail = u8"Magnitude: " + std::string(buf) + u8"\nDepth: "
+                              + std::to_string((int)depthKm) + u8" km\nTime: "
                               + timeText(unixMs / 1000.0);
                     p.url = url;
                     pts.push_back(p);
@@ -166,7 +168,7 @@ namespace earthds
             }
         };
 
-        // ===== NASA EONET(活跃自然事件:火山/野火/风暴/冰山等)=====
+        // ===== NASA EONET (active natural events: volcanoes/wildfires/storms/icebergs etc.) =====
         class EonetSource : public HttpJsonSource
         {
         public:
@@ -205,8 +207,8 @@ namespace earthds
                     p.sizePx = 10.0f;
                     p.color = osg::Vec4(0.29f, 0.85f, 0.42f, 1.0f);
                     p.title = title;
-                    p.detail = u8"类别 Category: " + (category.empty() ? "-" : category);
-                    if (!link.empty()) p.detail += u8"\n来源 Source: " + link;
+                    p.detail = u8"Category: " + (category.empty() ? "-" : category);
+                    if (!link.empty()) p.detail += u8"\nSource: " + link;
                     p.url = link;
                     pts.push_back(p);
                 }
@@ -214,7 +216,7 @@ namespace earthds
             }
         };
 
-        // ===== 工厂注册 =====
+        // ===== factory registration =====
         DataSource* createGdacs(const earthee::SourceConfig& c, const earthee::AppConfig& a)
         { return new GdacsSource(c, a); }
         DataSource* createUsgs(const earthee::SourceConfig& c, const earthee::AppConfig& a)

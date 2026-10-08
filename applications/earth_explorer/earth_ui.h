@@ -12,18 +12,20 @@
 #include "LayerRegistry.h"
 #include "EarthAppConfig.h"
 
-// 环境状态(UI draw 线程写 atomic,主线程的更新回调读取并落到 shader uniform)
+// Environment state (the UI draw thread writes these atomics; the main-thread
+// update callback reads them and pushes them to shader uniforms)
 struct EnvironmentState
 {
-    std::atomic<float> sunAngle;     // 太阳方位角(弧度)
-    std::atomic<int> oceanOpaque;    // 海洋不透明度 0/1
-    std::atomic<bool> goHome;        // 请求视角归位(主线程执行)
+    std::atomic<float> sunAngle;     // Sun azimuth (radians)
+    std::atomic<int> oceanOpaque;    // Ocean opacity 0/1
+    std::atomic<bool> goHome;        // Request view reset (executed on the main thread)
     EnvironmentState() { sunAngle = 0.0f; oceanOpaque = 0; goHome = false; }
 };
 
-// ImGui 主界面:图层目录 / 数据源状态 / 要素详情卡 / 环境与视角控制。
-// 复用核心库 osgVerse::ImGuiManager + ImGuiContentHandler,标记图标复用
-// earthmark::drawMarkerIcon(与场景内点精灵同一份形状库)。
+// ImGui main interface: layer catalog / data source status / feature detail
+// card / environment and view controls. Reuses the core library
+// osgVerse::ImGuiManager + ImGuiContentHandler, and marker icons reuse
+// earthmark::drawMarkerIcon (the same shape library as the in-scene point sprites).
 class EarthUIHandler : public osgVerse::ImGuiContentHandler
 {
 public:
@@ -38,7 +40,8 @@ public:
 
     void setViewer(osgViewer::Viewer* viewer) { _viewer = viewer; }
     void setLoadingEarth(bool v) { _loadingEarth = v; }
-    // AI 助手核心(主线程装配好之后回填;NULL/未启用时聊天条显示禁用态)
+    // AI assistant core (filled in after the main thread wires it up; when
+    // NULL/disabled the chat bar shows its disabled state)
     void setAIChat(earthai::AIChatCore* core, const std::string& providerName)
     { _aiChat = core; _aiProviderName = providerName; }
     virtual void runInternal(osgVerse::ImGuiManager* m);
@@ -56,16 +59,17 @@ protected:
     EnvironmentState* _env;
     const earthee::AppConfig* _config;
     osgViewer::Viewer* _viewer;
-    std::atomic<bool> _loadingEarth;  // 地球根瓦片仍在后台加载时显示覆盖层
+    std::atomic<bool> _loadingEarth;  // Show an overlay while the earth root tile still loads in the background
 
-    earthai::AIChatCore* _aiChat;     // 不持有所有权(earth_main 栈对象)
-    std::string _aiProviderName;      // 当前供应商显示名(如 "deepseek-chat")
-    char _chatInput[1024];            // 聊天输入缓冲
-    bool _chatHistoryOpen;            // 历史面板展开状态(默认折叠,地图优先)
-    size_t _chatLastCount;            // 上次绘制时的条目数,用于自动滚动到底部
+    earthai::AIChatCore* _aiChat;     // Does not own the object (stack object in earth_main)
+    std::string _aiProviderName;      // Current provider display name (e.g. "deepseek-chat")
+    char _chatInput[1024];            // Chat input buffer
+    bool _chatHistoryOpen;            // History panel expansion state (collapsed by default, map first)
+    size_t _chatLastCount;            // Entry count at the last draw, used to auto-scroll to the bottom
 };
 
-// 主线程:把 UI 写入的 EnvironmentState 落到大气/海洋 uniform,并执行 goHome
+// Main thread: push the EnvironmentState written by the UI to the atmosphere /
+// ocean uniforms, and execute goHome
 class EnvironmentUpdater : public osg::NodeCallback
 {
 public:

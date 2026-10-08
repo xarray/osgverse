@@ -1,11 +1,13 @@
-// AI 助手核心框架实现:三种 Provider + AIChatCore 代理循环。
-// 线程模型(移植自朋友版并保持):
-//   - submit()/drainMainThread() 在主线程;worker 线程只调 provider->chat,
-//     结果经 _mutex 保护的 _pending* 交回主线程,绝不直接碰 registry/transcript;
-//   - _busy 只由 drainMainThread 清除,杜绝"busy 已清但回复未上屏"窗口里的插队。
+// AI assistant core framework implementation: three Providers + the AIChatCore agent loop.
+// Threading model (ported from the friend's version and kept):
+//   - submit()/drainMainThread() run on the main thread; the worker thread only calls provider->chat,
+//     and hands results back to the main thread via the _mutex-protected _pending*, never touching
+//     the registry/transcript directly;
+//   - _busy is cleared only by drainMainThread, preventing queue-jumping in the window where
+//     "busy is already cleared but the reply is not yet on screen".
 #include "ai_chat.h"
-#include <osgDB/Options>             // Utilities.h 内联使用 ref_ptr<Options>,需先完整定义
-#include <readerwriter/Utilities.h>  // WebAuxiliary::httpRequest(POST 支持)
+#include <osgDB/Options>             // Utilities.h uses ref_ptr<Options> inline, so it must be fully defined first
+#include <readerwriter/Utilities.h>  // WebAuxiliary::httpRequest (POST support)
 #include <osg/Notify>
 #include <OpenThreads/Thread>
 #include <cstdio>
@@ -16,7 +18,7 @@ namespace earthai
 {
     namespace
     {
-        // 错误摘要截断到 200 字符并做 UTF-8 修补(硬切可能切在多字节字符中间)
+        // Truncate an error summary to 200 characters with UTF-8 repair (a hard cut may split a multibyte character)
         std::string truncate200(const std::string& s)
         {
             if (s.size() <= 200) return s;
@@ -28,8 +30,9 @@ namespace earthai
 
         const int kHttpRetries = 3;
 
-        // POST + 连接层失败重试(线性退避)。真实 4xx/5xx 是服务端语义,不重试。
-        // 返回码:-1 = 连接层彻底失败(DNS/TLS/超时无响应)。
+        // POST with connection-layer failure retries (linear backoff). Real 4xx/5xx are server-side
+        // semantics and are not retried.
+        // Return code: -1 = connection layer failed completely (DNS/TLS/timeout with no response).
         int httpPostJson(const std::string& url, const std::string& body,
                          const std::map<std::string, std::string>& headers,
                          int timeoutSeconds, std::string& respBody)
@@ -47,14 +50,14 @@ namespace earthai
             return resp.code;
         }
 
-        // 从 JSON 对象里取字符串字段(存在且类型对才写入 out)
+        // Get a string field from a JSON object (writes to out only if it exists and the type matches)
         bool getStringField(const picojson::value& v, const char* key, std::string& out)
         {
             return v.is<picojson::object>() && v.contains(key)
                    && v.get(key).is<std::string>() && !(out = v.get(key).to_str()).empty();
         }
 
-        // ---------------- 自动工作区上下文信封(信任边界) ----------------
+        // ---------------- Automatic workspace context envelope (trust boundary) ----------------
         const std::size_t kEarthContextMaxBytes = 128u * 1024u;
 
         std::string contextAwareUserText(const std::string& userText,
@@ -118,15 +121,16 @@ namespace earthai
 
     // ===== ToolRegistry =====
 
-    // 用 picojson 树构造而非手工字符串拼接:拼接版本曾产生 "}\"type\"" 非法 JSON
-    // (真实 API 400),且 fake 回放不校验 JSON 发现不了。此处顺带校验 parametersJson。
+    // Build with a picojson tree instead of manual string concatenation: the concatenation version
+    // once produced invalid JSON "}\"type\"" (real API 400), which fake playback did not validate
+    // and thus could not detect. This also validates parametersJson along the way.
     bool ToolRegistry::parseParameters(const Tool& t, picojson::value& out) const
     {
         std::string err = picojson::parse(out, t.parametersJson);
         if (!err.empty())
         {
             OSG_WARN << "[EarthAI] tool " << t.name << " parametersJson "
-                     << u8"解析失败(" << err << "),该工具的参数声明将被忽略\n";
+                     << u8"failed to parse (" << err << "), this tool's parameter declaration will be ignored\n";
             return false;
         }
         return true;
@@ -150,7 +154,7 @@ namespace earthai
 
     std::string ToolRegistry::buildOpenAIToolsJson() const
     {
-        // OpenAI 规范:{"type":"function","function":{"name":..,"description":..,"parameters":{..}}}
+        // OpenAI spec: {"type":"function","function":{"name":..,"description":..,"parameters":{..}}}
         picojson::array arr;
         for (size_t i = 0; i < _tools.size(); ++i)
         {
@@ -178,7 +182,7 @@ namespace earthai
         result = picojson::value(err); return false;
     }
 
-    // ===== OpenAICompatibleProvider(DeepSeek 等) =====
+    // ===== OpenAICompatibleProvider (DeepSeek etc.) =====
 
     std::string OpenAICompatibleProvider::describe() const
     {
@@ -189,9 +193,9 @@ namespace earthai
     {
         LLMTurn turn;
         if (_setup.apiKey.empty())
-        { turn.error = u8"未配置 API Key(检查 ai.providers." + _setup.name + ")"; return turn; }
+        { turn.error = u8"API Key not configured (check ai.providers." + _setup.name + ")"; return turn; }
 
-        // messages 序列化:system + 中立历史 → OpenAI 消息数组
+        // messages serialization: system + neutral history → OpenAI messages array
         std::string messages = "[";
         bool first = true;
         auto appendMessage = [&](const std::string& json)
@@ -212,9 +216,10 @@ namespace earthai
             const HistoryItem& h = req.history[i];
             if (h.role == HistoryItem::MODEL_CALL)
             {
-                // 连续 MODEL_CALL(模型一轮发了多个调用)必须合并进同一条 assistant
-                // 消息:OpenAI 要求每条 tool_calls 消息后紧跟它全部的 tool 响应,
-                // 拆成多条相邻 assistant 消息会 400(insufficient tool messages)
+                // Consecutive MODEL_CALLs (the model sent multiple calls in one round) must be merged
+                // into the same assistant message: OpenAI requires every tool_calls message to be
+                // immediately followed by all of its tool responses; splitting them into multiple
+                // adjacent assistant messages causes a 400 (insufficient tool messages)
                 picojson::array tcs;
                 size_t j = i;
                 for (; j < req.history.size() && req.history[j].role == HistoryItem::MODEL_CALL; ++j)
@@ -252,7 +257,7 @@ namespace earthai
                 appendMessage(picojson::value(msg).serialize());
                 break;
             case HistoryItem::MODEL_CALL:
-                break;   // 上面已按连续分组处理
+                break;   // already handled above by consecutive grouping
             case HistoryItem::TOOL_RESPONSE:
                 msg["role"] = picojson::value("tool");
                 msg["tool_call_id"] = picojson::value(h.callId);
@@ -286,7 +291,7 @@ namespace earthai
         int code = httpPostJson(url, body, headers, _setup.timeoutSeconds, respBody);
         if (code == -1)
         {
-            turn.error = u8"网络连接失败(多次重试无响应):可能网络中断 / 请求超时,请检查网络后重试";
+            turn.error = u8"Network connection failed (no response after multiple retries): possibly a network outage / request timeout; check your network and retry";
             return turn;
         }
         if (code != 200)
@@ -356,12 +361,13 @@ namespace earthai
     {
         LLMTurn turn;
         if (_setup.apiKey.empty())
-        { turn.error = u8"未配置 API Key(检查 ai.providers." + _setup.name + ")"; return turn; }
+        { turn.error = u8"API Key not configured (check ai.providers." + _setup.name + ")"; return turn; }
 
-        // contents 数组:中立历史 → Gemini role/parts
-        // 连续 MODEL_CALL 合并成一个 model entry(多个 functionCall parts),
-        // 连续 TOOL_RESPONSE 合并成一个 user entry(多个 functionResponse parts)——
-        // 这是 Gemini 的规范回合形态;逐条拆开会形成 model/model 相邻等非常规序列
+        // contents array: neutral history → Gemini role/parts
+        // Consecutive MODEL_CALLs merge into a single model entry (multiple functionCall parts),
+        // and consecutive TOOL_RESPONSEs merge into a single user entry (multiple functionResponse
+        // parts) — this is Gemini's canonical turn shape; splitting them item by item would create
+        // unconventional sequences such as adjacent model/model entries
         std::string contents = "[";
         for (size_t i = 0; i < req.history.size(); )
         {
@@ -417,7 +423,7 @@ namespace earthai
                 part["text"] = picojson::value(h.text);
                 break;
             default:
-                break;   // 上面已按连续分组处理
+                break;   // already handled above by consecutive grouping
             }
             picojson::array parts; parts.push_back(picojson::value(part));
             entry["parts"] = picojson::value(parts);
@@ -435,7 +441,7 @@ namespace earthai
         }
         if (req.withTools)
         {
-            // Gemini 拒绝空 functionDeclarations 数组
+            // Gemini rejects an empty functionDeclarations array
             const std::string& decls = req.geminiDeclarationsJson;
             if (!decls.empty() && decls != "[]")
                 body += ",\"tools\":[{\"functionDeclarations\":" + decls + "}]";
@@ -444,7 +450,7 @@ namespace earthai
 
         std::map<std::string, std::string> headers;
         headers["Content-Type"] = "application/json";
-        // 注意:key 拼在 URL 里,任何日志/错误信息都不得把整串 URL 打出来
+        // Note: the key is embedded in the URL, so no log/error message may print the full URL
         std::string url = "https://generativelanguage.googleapis.com/v1beta/models/"
                         + _setup.model + ":generateContent?key=" + _setup.apiKey;
 
@@ -452,7 +458,7 @@ namespace earthai
         int code = httpPostJson(url, body, headers, _setup.timeoutSeconds, respBody);
         if (code == -1)
         {
-            turn.error = u8"网络连接失败(多次重试无响应):可能网络中断 / 请求超时,请检查网络后重试";
+            turn.error = u8"Network connection failed (no response after multiple retries): possibly a network outage / request timeout; check your network and retry";
             return turn;
         }
         if (code != 200)
@@ -504,7 +510,7 @@ namespace earthai
             {
                 const picojson::value& fcv = part.get("functionCall");
                 FunctionCall fc;
-                if (!getStringField(fcv, "name", fc.name)) continue;  // 无名调用没法执行
+                if (!getStringField(fcv, "name", fc.name)) continue;  // a nameless call cannot be executed
                 fc.args = fcv.contains("args") ? fcv.get("args")
                                                : picojson::value(picojson::object());
                 if (fcv.contains("id") && fcv.get("id").is<std::string>())
@@ -573,7 +579,7 @@ namespace earthai
         return _script[_cursor++];
     }
 
-    // ===== Provider 工厂 =====
+    // ===== Provider factory =====
 
     LLMProvider* createLLMProvider(const AIProviderSetup& p)
     {
@@ -581,8 +587,8 @@ namespace earthai
         {
             if (p.apiKey.empty())
             {
-                OSG_WARN << "[EarthAI] " << u8"AI 供应商 " << p.name
-                         << u8" 缺少 API Key,已禁用\n";
+                OSG_WARN << "[EarthAI] " << u8"AI provider " << p.name
+                         << u8" is missing an API Key, disabled\n";
                 return NULL;
             }
             return new OpenAICompatibleProvider(p);
@@ -591,8 +597,8 @@ namespace earthai
         {
             if (p.apiKey.empty())
             {
-                OSG_WARN << "[EarthAI] " << u8"AI 供应商 " << p.name
-                         << u8" 缺少 API Key,已禁用\n";
+                OSG_WARN << "[EarthAI] " << u8"AI provider " << p.name
+                         << u8" is missing an API Key, disabled\n";
                 return NULL;
             }
             return new GeminiProvider(p);
@@ -602,15 +608,15 @@ namespace earthai
             FakeProvider* fake = new FakeProvider;
             if (fake->loadFromFile(p.scriptFile))
             {
-                OSG_NOTICE << "[EarthAI] FakeProvider 已加载脚本: " << p.scriptFile << "\n";
+                OSG_NOTICE << "[EarthAI] FakeProvider loaded script: " << p.scriptFile << "\n";
                 return fake;
             }
-            OSG_WARN << "[EarthAI] " << u8"fake 供应商脚本加载失败: " << p.scriptFile << "\n";
+            OSG_WARN << "[EarthAI] " << u8"fake provider script failed to load: " << p.scriptFile << "\n";
             delete fake;
             return NULL;
         }
-        OSG_WARN << "[EarthAI] " << u8"未知 AI 供应商类型 \"" << p.type
-                 << "\" (支持 openai_compatible / gemini / fake)\n";
+        OSG_WARN << "[EarthAI] " << u8"unknown AI provider type \"" << p.type
+                 << "\" (supported: openai_compatible / gemini / fake)\n";
         return NULL;
     }
 
@@ -650,7 +656,7 @@ namespace earthai
             std::lock_guard<std::mutex> g(_mutex);
             if (_busy)
             {
-                ChatEntry e; e.kind = ChatEntry::TOOL_NOTE; e.text = u8"上一条还在处理中";
+                ChatEntry e; e.kind = ChatEntry::TOOL_NOTE; e.text = u8"the previous message is still being processed";
                 _transcript.push_back(e);
                 return;
             }
@@ -678,8 +684,9 @@ namespace earthai
 
         {
             std::lock_guard<std::mutex> g(_mutex);
-            // 快照只属于当下这一轮;进入下一条用户请求前,旧轮次剥离为原始用户文字,
-            // 防止过期快照在历史里堆积(浪费 token 且新旧状态互相矛盾)
+            // The snapshot belongs only to the current round; before the next user request, older
+            // rounds are stripped back to the raw user text, preventing stale snapshots from piling
+            // up in the history (wasting tokens and contradicting the current state)
             for (size_t i = 0; i < _history.size(); ++i)
             {
                 if (_history[i].role == HistoryItem::USER_TEXT)
@@ -690,8 +697,9 @@ namespace earthai
             hi.text = historyText;
             _history.push_back(hi);
 
-            // 历史裁剪:切点必须落在 USER_TEXT 边界(硬切停在 call/response 中间,
-            // 或历史以非 user 开头,两家 API 都会 400)
+            // History trimming: the cut point must land on a USER_TEXT boundary (a hard cut that
+            // stops in the middle of a call/response, or a history starting with a non-user entry,
+            // causes a 400 from both APIs)
             const size_t kMaxHistoryItems = 40;
             if (_history.size() > kMaxHistoryItems)
             {
@@ -705,7 +713,7 @@ namespace earthai
 
     std::string AIChatCore::buildContentsLocked() const
     {
-        // Gemini 风格序列化(测试校验用);真实请求由 Provider 自行序列化
+        // Gemini-style serialization (for test verification); real requests are serialized by the Provider itself
         std::string s = "[";
         for (size_t i = 0; i < _history.size(); ++i)
         {
@@ -732,7 +740,7 @@ namespace earthai
         {
             std::lock_guard<std::mutex> g(_mutex);
             request.history = _history;
-            request.withTools = !_forceNoTools;   // 收尾轮(撞上限)不带工具
+            request.withTools = !_forceNoTools;   // the final round (after hitting the limit) carries no tools
             _forceNoTools = false;
             request.systemPrompt = _systemPrompt;
         }
@@ -740,13 +748,13 @@ namespace earthai
         if (provider == NULL)
         {
             ChatEntry e; e.kind = ChatEntry::ERR;
-            e.text = u8"AI Provider 不可用(未配置或初始化失败)";
+            e.text = u8"AI Provider unavailable (not configured or failed to initialize)";
             std::lock_guard<std::mutex> g(_mutex);
             _transcript.push_back(e); _busy = false;
             return;
         }
 
-        // tools JSON 按协议提前算好(worker 线程不碰 ToolRegistry)
+        // tools JSON is precomputed per protocol (the worker thread does not touch ToolRegistry)
         if (request.withTools && _registry)
         {
             request.openAIToolsJson = _registry->buildOpenAIToolsJson();
@@ -773,7 +781,7 @@ namespace earthai
             }
             else if (!turn.calls.empty())
             {
-                _pendingCalls = turn.calls;  // 等 drainMainThread 在主线程执行工具
+                _pendingCalls = turn.calls;  // wait for drainMainThread to execute tools on the main thread
             }
             else
             {
@@ -815,7 +823,7 @@ namespace earthai
 
             if (_hasPendingAssistantText)
             {
-                // 纯文本回复也计入历史,否则模型看不到自己上一轮说了什么
+                // Plain-text replies are also recorded in history, otherwise the model cannot see what it said last round
                 HistoryItem hi; hi.role = HistoryItem::MODEL_TEXT;
                 hi.text = _pendingAssistantText;
                 _history.push_back(hi);
@@ -831,7 +839,7 @@ namespace earthai
                     hi.callName = _pendingCalls[i].name;
                     hi.callArgs = _pendingCalls[i].args;
                     hi.callId = _pendingCalls[i].id;
-                    // OpenAI 要求 tool_call_id 非空;模型没给就合成一个
+                    // OpenAI requires a non-empty tool_call_id; synthesize one if the model gave none
                     if (hi.callId.empty())
                         hi.callId = "call_" + std::to_string(++_callIdCounter);
                     _history.push_back(hi);
@@ -845,9 +853,9 @@ namespace earthai
             if (!haveCalls) _busy = false;
         }
 
-        if (!haveCalls) return;  // 纯文本/错误,本轮代理循环结束
+        if (!haveCalls) return;  // plain text/error, this round of the agent loop ends
 
-        // 轮次上限检查(在主线程执行工具前,避免无限循环)
+        // Round limit check (before executing tools on the main thread, to avoid an infinite loop)
         bool limitReached = false;
         {
             std::lock_guard<std::mutex> g(_mutex);
@@ -859,8 +867,9 @@ namespace earthai
         {
             {
                 std::lock_guard<std::mutex> g(_mutex);
-                // 已记入历史的 functionCall 必须补配对的 functionResponse,
-                // 否则历史"裸 call"会让之后每次请求都 400;这批调用不再执行
+                // A functionCall already recorded in history must get a paired functionResponse,
+                // otherwise a "bare call" in history makes every subsequent request return 400;
+                // this batch of calls is no longer executed
                 for (size_t i = 0; i < callsToRun.size(); ++i)
                 {
                     picojson::object errObj;
@@ -871,21 +880,22 @@ namespace earthai
                     _history.push_back(hi);
                 }
                 ChatEntry e; e.kind = ChatEntry::TOOL_NOTE;
-                e.text = u8"已达工具调用上限(" + std::to_string(_maxRounds)
-                       + u8"),基于已获取的数据作答";
+                e.text = u8"Reached the tool call limit (" + std::to_string(_maxRounds)
+                       + u8"), answering based on the data already obtained";
                 _transcript.push_back(e);
                 _forceNoTools = true;
             }
-            startWorkerRound();  // busy 保持 true,等无工具收尾轮
+            startWorkerRound();  // busy stays true, waiting for the tool-less final round
             return;
         }
 
-        // 主线程执行工具(会碰 OSG 场景图,绝不能在 worker 线程跑)
+        // Execute tools on the main thread (they touch the OSG scene graph, so they must never run on the worker thread)
         for (size_t i = 0; i < callsToRun.size(); ++i)
         {
             const FunctionCall& fc = callsToRun[i];
             picojson::value result;
-            // 工具异常兜底:转成 error 回传模型(历史配对不破坏),让模型自行纠错
+            // Tool exception fallback: convert to an error sent back to the model (keeping history
+            // pairing intact) so the model can correct itself
             try { _registry->dispatch(fc.name, fc.args, result); }
             catch (const std::exception& ex)
             {
@@ -900,7 +910,7 @@ namespace earthai
                 result = picojson::value(errObj);
             }
 
-            std::string note = u8"[工具] " + fc.name + "(" + fc.args.serialize() + ")";
+            std::string note = u8"[tool] " + fc.name + "(" + fc.args.serialize() + ")";
             std::lock_guard<std::mutex> g(_mutex);
             ChatEntry e; e.kind = ChatEntry::TOOL_NOTE; e.text = note;
             _transcript.push_back(e);
@@ -910,6 +920,6 @@ namespace earthai
             _history.push_back(hi);
         }
 
-        startWorkerRound();  // 带上最新工具结果起下一轮
+        startWorkerRound();  // start the next round with the latest tool results
     }
 }

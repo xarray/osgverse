@@ -1,6 +1,8 @@
-// DataSource 框架实现:抓取线程 / 主线程同步重建 GL_POINTS / 点精灵着色器 / 拾取。
-// 着色器与拾取数学移植自朋友版 feed_layer.cpp(经过实战验证),HTTP 层改为复用
-// 核心库 osgVerse::loadFileData(连接复用 + 8/15s 超时),不再直接依赖 libhv。
+// DataSource framework implementation: fetch thread / main-thread sync rebuild of GL_POINTS /
+// point sprite shaders / picking.
+// The shader and picking math are ported from the friend's feed_layer.cpp (battle-tested), while
+// the HTTP layer reuses the core library osgVerse::loadFileData (connection reuse + 8/15s timeout)
+// instead of depending on libhv directly.
 #include "DataSource.h"
 #include <osg/Geometry>
 #include <osg/Point>
@@ -10,7 +12,7 @@
 #include <modeling/Math.h>
 #include <pipeline/Pipeline.h>
 #include <readerwriter/Utilities.h>
-#include <ui/ImGuiComponents.h>   // ImGui:: 命名空间(WantCaptureMouse 检查)
+#include <ui/ImGuiComponents.h>   // ImGui:: namespace (WantCaptureMouse check)
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -19,13 +21,15 @@ namespace earthds
 {
     namespace
     {
-        const float kDragThreshPx2 = 25.0f;     // 5px 拖动阈值的平方
-        const float kPickExtraRadiusPx = 10.0f; // 拾取容差:点半径外的像素裕量
+        const float kDragThreshPx2 = 25.0f;     // square of the 5px drag threshold
+        const float kPickExtraRadiusPx = 10.0f; // pick tolerance: pixel margin outside the point radius
 
-        // 点精灵顶点着色器:颜色/大小由 DataPoint 决定;前半球剔除(取代深度测试)——
-        // 点顶点是 ECEF 世界坐标,变到相机空间后地心 Cv=MV*原点、相机在原点,可见判据
-        // (eye·P>|P|²) 等价于相机空间 dot(Pv-Cv, Pv)<0。背面点移出裁剪空间,配合
-        // 关深度测试,根治远视角深度精度不足导致的 z-fight 闪烁。
+        // Point sprite vertex shader: color/size come from DataPoint; front hemisphere culling
+        // (replacing the depth test) — the point vertex is an ECEF world coordinate, and after
+        // transforming to camera space the earth center Cv=MV*origin, camera at origin, the
+        // visibility criterion (eye·P>|P|²) is equivalent to dot(Pv-Cv, Pv)<0 in camera space.
+        // Back-facing points are moved out of clip space, and with the depth test disabled this
+        // eliminates z-fight flicker from insufficient depth precision at far viewpoints.
         const char* feedVertCode = {
             "VERSE_VS_OUT vec4 pointColor;\n"
             "VERSE_VS_OUT float vShapeId;\n"
@@ -40,7 +44,8 @@ namespace earthds
             "}\n"
         };
 
-        // 片元入口:形状绘制在 earthmark::markerShapeGLSL() 共享库里(buildScene 拼接)
+        // Fragment entry: the shape drawing lives in the shared earthmark::markerShapeGLSL()
+        // library (concatenated in buildScene)
         const char* feedFragMain = {
             "VERSE_FS_IN vec4 pointColor;\n"
             "VERSE_FS_IN float vShapeId;\n"
@@ -64,12 +69,14 @@ namespace earthds
 #define GL_PROGRAM_POINT_SIZE 0x8642
 #endif
 
-        // 全局选中态(仅主/事件线程写、UI draw 线程读,配锁)
+        // Global selection state (written only by the main/event thread, read by the UI draw
+        // thread, with a lock)
         OpenThreads::Mutex& globalSelMutex() { static OpenThreads::Mutex m; return m; }
         Selection& globalSelStorage() { static Selection s; return s; }
 
-        // HTTP GET(带连接层重试):拿到非空 body 即成功。loadFileData 内部自带
-        // 8s 连接/15s 总超时与每 (thread,host) 持久连接,这里只补"无响应重试"。
+        // HTTP GET (with connection-layer retry): a non-empty body means success. loadFileData
+        // itself carries an 8s connect / 15s total timeout and a persistent connection per
+        // (thread,host); here we only add "retry on no response".
         bool httpGetWithRetry(const std::string& url, int retries, std::string& body)
         {
             for (int attempt = 0; attempt <= retries; ++attempt)
@@ -102,7 +109,7 @@ namespace earthds
         globalSelStorage() = Selection();
     }
 
-    // ===== 抓取线程 =====
+    // ===== fetch thread =====
     namespace
     {
         class FetchThread : public OpenThreads::Thread
@@ -112,7 +119,7 @@ namespace earthds
             virtual int cancel() { _done = true; return OpenThreads::Thread::cancel(); }
             virtual void run()
             {
-                const int kTickMs = 100;  // 轮询节拍;关闭时 tick 归零(下次开启立即抓)
+                const int kTickMs = 100;  // poll tick; when disabled tick resets to zero (fetch immediately when re-enabled)
                 while (!_done)
                 {
                     _owner->pollFetch();
@@ -122,7 +129,7 @@ namespace earthds
             }
         protected:
             DataSource* _owner;
-            std::atomic<bool> _done;  // 抓取线程读写、主线程(析构)也写 → atomic
+            std::atomic<bool> _done;  // read/written by the fetch thread, also written by the main thread (destructor) -> atomic
         };
 
         class SyncCallback : public osg::NodeCallback
@@ -140,7 +147,7 @@ namespace earthds
     :   _cfg(cfg), _shapeId((int)earthmark::visualForLayer(cfg.id).shape), _root(NULL),
         _enabled(false), _fetchState(0), _dirty(false), _tick(0), _thread(NULL)
     {
-        // 点精灵着色器 + StateSet:关深度测试(renderBin 11 保证画在地表之后)
+        // Point sprite shader + StateSet: depth test off (renderBin 11 ensures drawing after the surface)
         osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, feedVertCode);
         std::string fsSrc = std::string(earthmark::markerShapeGLSL()) + feedFragMain;
         osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fsSrc);
@@ -157,7 +164,7 @@ namespace earthds
         _ss->setRenderBinDetails(11, "RenderBin");
 
         _root = new osg::Group;
-        _root->setNodeMask(0);  // 默认关闭
+        _root->setNodeMask(0);  // disabled by default
         _root->setName("DataSource_" + cfg.id);
         _root->addUpdateCallback(new SyncCallback(this));
     }
@@ -173,7 +180,7 @@ namespace earthds
         if (_root) _root->setNodeMask(on ? ~0u : 0u);
         if (on) startFetch();
         if (!on)
-        {   // 关层时清掉"来源==本源"的选中详情卡
+        {   // when disabling the layer, clear the selection detail card whose "source == this source"
             OpenThreads::ScopedLock<OpenThreads::Mutex> lk(globalSelMutex());
             if (globalSelStorage().valid && globalSelStorage().sourceId == _cfg.id)
                 globalSelStorage() = Selection();
@@ -213,7 +220,8 @@ namespace earthds
 
     void DataSource::pollFetch()
     {
-        // 抓取线程轮询体:100ms 一拍,到刷新间隔且开启时抓一次
+        // Fetch thread poll body: one tick every 100ms, fetch once when the refresh interval is
+        // reached and enabled
         const int refresh = (_cfg.refreshSeconds > 0) ? _cfg.refreshSeconds : 600;
         const int intervalTicks = (refresh * 1000) / 100;
         if (_enabled)
@@ -223,7 +231,7 @@ namespace earthds
                 std::vector<DataPoint> points; std::string err;
                 bool ok = false;
                 try { ok = fetch(points, err); }
-                catch (...) { ok = false; err = u8"抓取异常"; }
+                catch (...) { ok = false; err = u8"Fetch exception"; }
 
                 Snapshot snap;
                 if (ok)
@@ -239,11 +247,11 @@ namespace earthds
                     }
                 }
                 postSnapshot(std::move(snap));
-                _fetchState = ok ? (points.empty() ? 3 : 1) : 2;  // 0/1/2/3 见头文件
+                _fetchState = ok ? (points.empty() ? 3 : 1) : 2;  // 0/1/2/3 see header
                 if (!ok)
                 {
                     OpenThreads::ScopedLock<OpenThreads::Mutex> lk(_errMutex);
-                    _lastErrorText = err.empty() ? u8"抓取失败(原因未知)" : err;
+                    _lastErrorText = err.empty() ? u8"Fetch failed (reason unknown)" : err;
                     std::cout << "[DataSource] " << _cfg.id << " fetch failed: "
                               << _lastErrorText << "\n";
                 }
@@ -319,7 +327,7 @@ namespace earthds
         for (size_t i = 0; i < recs.size(); ++i)
         {
             const osg::Vec3d& P = recs[i].ecef;
-            if ((eye * P) <= (P * P)) continue;   // 前半球剔除
+            if ((eye * P) <= (P * P)) continue;   // front hemisphere culling
             osg::Vec3d win = P * VPW;
             double d2 = (win.x() - mx) * (win.x() - mx) + (win.y() - my) * (win.y() - my);
             float tol = recs[i].pt.sizePx * 0.5f + kPickExtraRadiusPx;
@@ -351,11 +359,11 @@ namespace earthds
     {
         const earthee::SourceConfig& cfg = config();
         if (cfg.needsKey() && _resolvedKey.empty())
-        { err = u8"未配置 API Key"; return false; }
+        { err = u8"API Key not configured"; return false; }
 
         std::string url = cfg.url;
         if (!cfg.needsKey())
-        {   // 无 key 源:仍支持 {key} 占位(为空即可,不该出现)
+        {   // no-key source: still supports the {key} placeholder (empty is fine, should not appear)
             if (url.find("{key}") != std::string::npos) url.erase(url.find("{key}"), 5);
         }
         else
@@ -367,21 +375,23 @@ namespace earthds
 
         std::string body;
         if (!httpGetWithRetry(url, 2, body))
-        { err = u8"网络连接失败(无响应)"; return false; }
+        { err = u8"Network connection failed (no response)"; return false; }
 
         picojson::value root;
         std::string perr = picojson::parse(root, body);
-        if (!perr.empty()) { err = u8"JSON 解析失败: " + perr; return false; }
-        if (!parsePoints(root, points)) { err = u8"数据格式不符"; return false; }
+        if (!perr.empty()) { err = u8"JSON parse failed: " + perr; return false; }
+        if (!parsePoints(root, points)) { err = u8"Data format mismatch"; return false; }
         return true;
     }
 
     // ===== DataSourceManager =====
     namespace
     {
-        // 全源共用的拾取处理器:一次点击遍历所有源(前半球剔除 + 像素容差在源内部)。
-        // 持有 ref_ptr 快照而非裸指针——源的生命周期由管理器保证,但处理器可能
-        // 在管理器销毁后仍被 viewer 触发(退出期),ref_ptr 防悬垂。
+        // Pick handler shared by all sources: a single click iterates over every source (front
+        // hemisphere culling + pixel tolerance happen inside each source).
+        // It holds a ref_ptr snapshot instead of raw pointers — the manager guarantees source
+        // lifetimes, but the handler may still be triggered by the viewer after the manager is
+        // destroyed (during shutdown), so ref_ptr prevents dangling.
         class ManagerPickHandler : public osgGA::GUIEventHandler
         {
         public:
@@ -397,7 +407,7 @@ namespace earthds
                          && ea.getButton() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON)
                 {
                     float dx = ea.getX() - _downX, dy = ea.getY() - _downY;
-                    // 鼠标落在 ImGui 面板上时不拾取场景要素(防穿透误点)
+                    // Do not pick scene features while the mouse is over an ImGui panel (prevents click-through)
                     bool overImGui = ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse;
                     if (_pushed && dx * dx + dy * dy < kDragThreshPx2 && !overImGui)
                     {
@@ -416,7 +426,7 @@ namespace earthds
                     }
                     _pushed = false;
                 }
-                return false;  // 不拦截,放行给 manipulator
+                return false;  // do not intercept, pass through to the manipulator
             }
         protected:
             virtual ~ManagerPickHandler() {}
@@ -438,19 +448,19 @@ namespace earthds
             osg::ref_ptr<DataSource> source(factory.create(sc, cfg));
             if (!source.valid())
             {
-                OSG_WARN << "[DataSourceManager] " << u8"未知数据源类型 \"" << sc.type
-                         << "\" (id=" << sc.id << ")," << u8"已跳过\n";
+                OSG_WARN << "[DataSourceManager] " << u8"Unknown data source type \"" << sc.type
+                         << "\" (id=" << sc.id << ")," << u8" skipped\n";
                 continue;
             }
 
-            // 图层目录注册:enabled/缺 key 状态一目了然
+            // Layer catalog registration: enabled / missing-key status at a glance
             earthmark::MarkerVisual visual = earthmark::visualForLayer(sc.id);
             OverlayLayer layer;
             layer.id = sc.id; layer.displayName = sc.displayName;
             layer.group = sc.group; layer.subtitle = sc.subtitle;
             layer.type = OverlayLayer::PointFeed;
             layer.needsKey = sc.needsKey() &&
-                             earthee::resolveKey(cfg, sc).empty();  // 缺 key → 灰显
+                             earthee::resolveKey(cfg, sc).empty();  // missing key -> grey out
             layer.shape = visual.shape; layer.iconColor = visual.color;
             layer.enabled = sc.enabled && !layer.needsKey;
             layer.fetchStatus = [source](std::string& err) -> int
@@ -463,15 +473,15 @@ namespace earthds
             { source->setEnabled(l.enabled); };
             layers.add(layer);
 
-            if (layer.enabled) source->setEnabled(true);  // 启动即开启
+            if (layer.enabled) source->setEnabled(true);  // enabled on startup
             root->addChild(source->root());
             _sources.push_back(source.get());
         }
 
         viewer.addEventHandler(new ManagerPickHandler(_sources));
         if (_sources.empty())
-            OSG_WARN << "[DataSourceManager] " << u8"没有可用的数据源(检查配置与控制台告警),"
-                        u8"数据源面板将全部不可用\n";
+            OSG_WARN << "[DataSourceManager] " << u8"No usable data sources (check the config and console warnings),"
+                        u8" the data source panel will be entirely unavailable\n";
         return root.release();
     }
 

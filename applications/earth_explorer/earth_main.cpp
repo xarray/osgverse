@@ -48,7 +48,8 @@ extern osg::Node* configureCityData(osgViewer::View& viewer, osg::Node* earthRoo
                                     osgVerse::EarthAtmosphereOcean& earthRenderingUtils,
                                     const std::string& mainFolder, unsigned int mask, bool waitingMode);
 
-// 瓦片源完全不可用时的兜底球体:保证"无论如何启动都能看到一个地球"
+// Fallback sphere when the tile source is completely unavailable: guarantees
+// "a globe is visible no matter what" at startup
 static osg::Node* createFallbackGlobe()
 {
     osg::ref_ptr<osg::Sphere> shape = new osg::Sphere(osg::Vec3(), 6371000.0f);
@@ -59,7 +60,8 @@ static osg::Node* createFallbackGlobe()
     return geode.release();
 }
 
-// 键盘:',' '.' 调太阳;'o' 记录动画路径帧 / 'i' 保存路径 / 'p' 载入并播放路径
+// Keyboard: ',' '.' adjust the sun; 'o' records an animation path frame /
+// 'i' saves the path / 'p' loads and plays the path
 class KeyHandler : public osgGA::GUIEventHandler
 {
 public:
@@ -128,8 +130,10 @@ protected:
     int _pressingKey, _pathIndex;
 };
 
-// 无头环境验证用:--shot <file> 在下一帧抓取主帧缓冲存 PNG(屏幕截图在
-// 无头/断开会话中不可靠,直接读 framebuffer);--auto-exit 抓帧后自动退出
+// Headless-verification helper: --shot <file> grabs the main framebuffer on the
+// next frame and saves it as PNG (screen capture is unreliable in a
+// headless/detached session, so read the framebuffer directly); --auto-exit
+// quits automatically after the capture
 class FrameShotCallback : public osg::Camera::DrawCallback
 {
 public:
@@ -147,8 +151,9 @@ public:
         osg::ref_ptr<osg::Image> img = new osg::Image;
         img->readPixels((int)vp->x(), (int)vp->y(), (int)vp->width(), (int)vp->height(),
                         GL_RGB, GL_UNSIGNED_BYTE);
-        // 写文件必须离开 GL 线程:writeImageFile 可能触发插件加载,
-        // 与主线程 / DatabasePager 并发访问 Registry 会竞争崩溃
+        // Writing the file must leave the GL thread: writeImageFile may trigger
+        // plugin loading, and concurrent access to the Registry from the main
+        // thread / DatabasePager would race and crash
         std::thread([img, file = _file]() { osgDB::writeImageFile(*img, file); }).detach();
         OSG_NOTICE << "[EarthExplorer] frame capture requested for " << _file << "\n";
     }
@@ -180,10 +185,13 @@ protected:
     int _target, _frames;
 };
 
-// 主线程每帧的集中 drain:
-// 1) LayerRegistry 待办(UI/AI 提交的图层开关在此真正生效——apply 回调碰场景图);
-// 2) AIChatCore 代理循环(执行模型排队的工具调用、推进下一轮)。
-// 工具 execute 与场景图更新都要求主线程,绝不放进 draw/worker 线程。
+// Central per-frame drain on the main thread:
+// 1) pending LayerRegistry work (layer toggles submitted by UI/AI actually take
+//    effect here -- the apply callback touches the scene graph);
+// 2) the AIChatCore agent loop (executes the model's queued tool calls, advances
+//    to the next round).
+// Both tool execution and scene graph updates require the main thread and must
+// never be placed on the draw/worker thread.
 class MainThreadDrainHandler : public osgGA::GUIEventHandler
 {
 public:
@@ -203,9 +211,11 @@ protected:
     earthai::AIChatCore* _aiChat;
 };
 
-// 无头 e2e 验证钩子:--ai-submit <text> 在第 N 帧自动提交一条用户消息,
-// --ai-transcript <file> 在 AI 空闲(最终文本/错误落定)后把会话记录写盘并退出。
-// 真实 API 一轮 10~30s,不能按固定帧数等;busy 清零后再缓冲若干帧,另有 240s 超时兜底。
+// Headless e2e verification hook: --ai-submit <text> automatically submits a user
+// message on frame N, --ai-transcript <file> writes the session transcript to disk
+// once the AI is idle (final text/error settled) and quits. A real API round takes
+// 10~30s, so we cannot wait a fixed number of frames; wait for busy to clear and
+// buffer a few frames, with a 240s timeout as a backstop.
 class AIAutoSubmitHandler : public osgGA::GUIEventHandler
 {
 public:
@@ -218,7 +228,7 @@ public:
     {
         if (ea.getEventType() != osgGA::GUIEventAdapter::FRAME || !_core) return false;
         ++_frames;
-        if (!_submitted && _frames >= 90)   // 等漫游器/图层就绪
+        if (!_submitted && _frames >= 90)   // wait for the manipulator/layers to be ready
         {
             _core->submit(_text);
             _submitted = true;
@@ -227,7 +237,7 @@ public:
         }
         if (_submitted && !_dumped && !_transcriptFile.empty())
         {
-            // busy 由 submit 置位、由 drainMainThread 在最终文本/错误时清零
+            // busy is set by submit and cleared by drainMainThread on the final text/error
             bool idle = !_core->busy() && (_frames > _submitFrame + 60);
             bool timeout = (_frames > _submitFrame + 14400);   // 240s @60fps
             if (idle || timeout)
@@ -266,7 +276,7 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
     osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
 
-    // ---- 统一配置:外部 API / 图源 / 数据源全部来自 earth_explorer.json ----
+    // ---- Unified config: external API / tile source / data sources all come from earth_explorer.json ----
     earthee::AppConfig cfg = earthee::loadAppConfig(arguments);
 
     std::string mainFolder = BASE_DIR + "/models"; arguments.read("--folder", mainFolder);
@@ -275,7 +285,7 @@ int main(int argc, char** argv)
     if (arguments.read("--no-wait")) cityWaitingTiles = false;
     if (arguments.read("--thrown")) manipulatorCanThrow = true;
 
-    // ---- 地球瓦片(全部 URL 模板来自配置;缺省时为在线公共图源)----
+    // ---- Earth tiles (all URL templates come from config; the default is an online public source) ----
     std::ostringstream earthURLs;
     earthURLs << " Orthophoto=" << cfg.orthophotoTemplate;
     if (!cfg.elevationTemplate.empty())
@@ -288,20 +298,21 @@ int main(int argc, char** argv)
               << " TileSkirtRatio=" << cfg.skirtRatio;
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs.str());
 
-    // ---- 缓存提前挂上:根瓦片命中本地缓存时启动几乎是即时的 ----
+    // ---- Attach the cache early: startup is nearly instant when the root tile hits the local cache ----
     osg::ref_ptr<osgVerse::FileCache> fileCache = new osgVerse::FileCache("earth_cache");
     osgDB::Registry::instance()->setFileCache(fileCache.get());
 
-    // ---- 视图 / UI 先行:窗口和 ImGui 立即出现,不等待网络 ----
+    // ---- View / UI first: the window and ImGui appear immediately without waiting for the network ----
     EnvironmentState envState;
     earthds::registerBuiltinSourceTypes();
     LayerRegistry layerRegistry;
     earthds::DataSourceManager dataSourceManager;
 
-    // ---- AI 助手:按配置实例化 Provider(工厂模式);缺 key/缺配置只是禁用,
-    //      绝不影响地球与其它 UI。所有权在 main 栈上,退出时显式回收 ----
+    // ---- AI assistant: instantiate the provider by config (factory pattern); a
+    //      missing key/config only disables it and never affects the earth or the
+    //      rest of the UI. Ownership stays on the main stack and is released explicitly on exit ----
     earthai::ToolRegistry aiToolRegistry;
-    earthai::LLMProvider* aiProvider = NULL;   // AIChatCore 不持有所有权
+    earthai::LLMProvider* aiProvider = NULL;   // AIChatCore does not own the provider
     earthai::AIChatCore* aiCore = NULL;
     std::string aiProviderName;
     if (cfg.ai.enabled && !cfg.ai.providers.empty())
@@ -312,7 +323,7 @@ int main(int argc, char** argv)
             if (cfg.ai.providers[i].name == cfg.ai.active)
             { activePC = &cfg.ai.providers[i]; break; }
         }
-        if (!activePC) activePC = &cfg.ai.providers[0];  // 未指定/找不到 → 第一个
+        if (!activePC) activePC = &cfg.ai.providers[0];  // unspecified/not found -> first one
 
         earthai::AIProviderSetup setup;
         setup.name = activePC->name;
@@ -332,17 +343,18 @@ int main(int argc, char** argv)
                                     ? earthai::defaultEarthSystemPrompt()
                                     : cfg.ai.systemPrompt);
             aiProviderName = aiProvider->describe();
-            OSG_NOTICE << "[EarthAI] AI 助手已启用: " << aiProviderName << "\n";
+            OSG_NOTICE << "[EarthAI] AI assistant enabled: " << aiProviderName << "\n";
         }
         else
         {
-            OSG_WARN << "[EarthAI] " << u8"AI 供应商不可用(缺 key 或类型错误),"
-                        u8"聊天面板将显示禁用状态\n";
+            OSG_WARN << "[EarthAI] AI provider unavailable (missing key or wrong type), "
+                        "the chat panel will show its disabled state\n";
         }
     }
     else if (cfg.ai.enabled)
     {
-        OSG_WARN << "[EarthAI] " << u8"没有可用的 AI 供应商配置,聊天面板将显示禁用状态\n";
+        OSG_WARN << "[EarthAI] no usable AI provider configured, "
+                    "the chat panel will show its disabled state\n";
     }
 
     osg::ref_ptr<EarthUIHandler> uiHandler = new EarthUIHandler(
@@ -352,12 +364,17 @@ int main(int argc, char** argv)
     uiHandler->setAIChat(aiCore, aiProviderName);
 
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    std::string fontPath = cfg.fontPath.empty() ? (MISC_DIR + "LXGWFasmartGothic.otf")
-                                                : cfg.fontPath;
-    if (osgDB::fileExists(fontPath)) imgui->setChineseSimplifiedFont(fontPath);
-    else OSG_WARN << "[EarthExplorer] 中文字体不存在(" << fontPath << "),界面中文可能显示异常\n";
+    // The interface is English, so ImGui's built-in ASCII font is enough. A
+    // custom font can still be provided via the config ui.font field.
+    if (!cfg.fontPath.empty() && osgDB::fileExists(cfg.fontPath))
+        imgui->setChineseSimplifiedFont(cfg.fontPath);
+    else
+        OSG_NOTICE << "[EarthExplorer] using the built-in ImGui font"
+                      " (set ui.font in the config to use a custom font)\n";
     imgui->initialize(uiHandler.get());
-    imgui->addToView(&viewer);
+    // Note: ImGui is attached to the final composite HUD camera further below
+    // (once the render pipeline exists); attaching it to the main camera here
+    // would let the earth/sky composite paint over the UI.
 
     osgDB::DatabasePager* pager = new osgDB::DatabasePager;
     pager->setDrawablePolicy(osgDB::DatabasePager::USE_VERTEX_BUFFER_OBJECTS);
@@ -370,7 +387,7 @@ int main(int argc, char** argv)
     viewer.setRealizeOperation(new osgVerse::RealizeOperation);
     viewer.setDatabasePager(pager);
 
-    // ---- 无头验证:--shot <file> [--auto-exit](回调在地球就绪后挂上)----
+    // ---- Headless verification: --shot <file> [--auto-exit] (callback attached once the earth is ready) ----
     std::string shotFile;
     bool autoExit = false;
     arguments.read("--shot", shotFile);
@@ -383,8 +400,9 @@ int main(int argc, char** argv)
     viewer.getCamera()->setClearColor(osg::Vec4(0.02f, 0.03f, 0.05f, 1.0f));
     viewer.realize();
 
-    // ---- 地球根瓦片后台加载:期间持续渲染(UI 覆盖层提示),
-    //      避免网络超时把窗口出现时间拖长到几十秒 ----
+    // ---- Load the earth root tile in the background while continuing to render
+    //      (the UI overlay shows a notice), avoiding network timeouts dragging the
+    //      window-appearance time out to tens of seconds ----
     std::future<osg::ref_ptr<osg::Node>> earthTask = std::async(std::launch::async, [&]()
     {
         return osg::ref_ptr<osg::Node>(osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get()));
@@ -395,18 +413,24 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> earth = earthTask.get();
     if (!earth)
     {
-        OSG_WARN << "[EarthExplorer] 地球瓦片源不可用,使用兜底球体(检查配置 globe.orthophoto/elevation "
-                    "与网络连接)\n";
+        OSG_WARN << "[EarthExplorer] earth tile source unavailable, using the fallback sphere "
+                    "(check the globe.orthophoto/elevation config and the network connection)\n";
         earth = createFallbackGlobe();
     }
     uiHandler->setLoadingEarth(false);
 
-    // ---- 大气 / 海洋 / 合成管线 ----
+    // ---- Atmosphere / ocean / composite pipeline ----
     osgVerse::EarthAtmosphereOcean earthRenderingUtils;
     osg::ref_ptr<osg::MatrixTransform> earthRoot = new osg::MatrixTransform;
     std::vector<osg::Camera*> cameras = configureEarthRendering(
         viewer, earthRoot.get(), earth.get(), earthRenderingUtils, mainFolder,
         EARTH_INTERSECTION_MASK, w, h);
+
+    // ---- Attach ImGui to the final composite HUD camera so the UI is drawn on
+    //      top of the earth/sky/ocean composite. That camera is POST_RENDER and
+    //      renders after the main camera, so the UI must be attached to it,
+    //      otherwise the globe/sky would paint over the interface ----
+    imgui->addToView(&viewer, cameras.empty() ? NULL : cameras.back());
 #if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
     earthRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 #endif
@@ -416,7 +440,7 @@ int main(int argc, char** argv)
     sceneCamera->setNearFarRatio(0.00001);
     sceneCamera->setSmallFeatureCullingPixelSize(10.0f);
 
-    // ---- 城市数据(本地资产,配置默认关闭;开启与否都不影响地球显示)----
+    // ---- City data (local assets, disabled by default via config; on or off never affects the globe) ----
     if (cfg.cityEnabled)
     {
         std::string cityFolder = cfg.cityFolder.empty() ? mainFolder : cfg.cityFolder;
@@ -426,25 +450,30 @@ int main(int argc, char** argv)
     }
     else
     {
-        OSG_NOTICE << "[EarthExplorer] 城市数据未启用(config: city.enabled)"
-                      ",如需本地城市建筑请在配置文件中打开\n";
+        OSG_NOTICE << "[EarthExplorer] city data not enabled (config: city.enabled), "
+                      "enable it and provide local city buildings in the config file if needed\n";
     }
 
-    // ---- 外部数据源框架(Factory 按配置实例化;无网络/无配置只是无数据)----
+    // ---- External data source framework (Factory instantiates by config; no network/no config just means no data) ----
     sceneCamera->addChild(dataSourceManager.initialize(cfg, viewer, layerRegistry));
 
-    // ---- 漫游器(地球就绪后才创建,EnvironmentUpdater 同步挂接)----
+    // ---- Manipulator (created only after the earth is ready, EnvironmentUpdater attached at the same time) ----
     osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
     earthManipulator->setIntersectionMask(EARTH_INTERSECTION_MASK);
     earthManipulator->setWorldNode(earth.get());
     earthManipulator->setThrowAllowed(manipulatorCanThrow);
+    // The viewer is realized before the manipulator is created, so View::init()
+    // (which normally calls CameraManipulator::init) has already run and the
+    // manipulator's internal viewer stays NULL. Without it, ray/ellipsoid
+    // picking is skipped and mouse-dragging can no longer rotate the globe.
+    earthManipulator->setViewer(&viewer);
     earthRoot->addUpdateCallback(
         new EnvironmentUpdater(&earthRenderingUtils, &envState, earthManipulator.get()));
 
     root->addChild(earthRoot.get());
     viewer.setCameraManipulator(earthManipulator.get());
 
-    // ---- AI 助手最终装配(漫游器此时才就绪):注册内置工具 + 工作区上下文快照 ----
+    // ---- Final AI assistant assembly (the manipulator is ready only now): register built-in tools + workspace context snapshot ----
     if (aiCore)
     {
         earthai::registerEarthAITools(aiToolRegistry, &layerRegistry,
@@ -458,20 +487,22 @@ int main(int argc, char** argv)
         });
     }
 
-    // 主线程集中 drain:图层待办(此前 UI 勾选只排队不生效的修复)+ AI 代理循环
+    // Central main-thread drain: layer pending work (fixes UI checkbox changes
+    // that previously only queued without taking effect) + the AI agent loop
     viewer.addEventHandler(new MainThreadDrainHandler(&layerRegistry, aiCore));
 
-    // ---- 无头 e2e:--ai-submit <text> [--ai-transcript <file>] ----
+    // ---- Headless e2e: --ai-submit <text> [--ai-transcript <file>] ----
     std::string aiSubmitText, aiTranscriptFile;
     arguments.read("--ai-submit", aiSubmitText);
     arguments.read("--ai-transcript", aiTranscriptFile);
     if (!aiSubmitText.empty() && aiCore)
         viewer.addEventHandler(new AIAutoSubmitHandler(aiCore, aiSubmitText, aiTranscriptFile));
 
-    // ---- 无头验证钩子:地球就绪后挂帧缓冲抓取。
-    //      注意:本渲染路径只回调 initial/pre/post 三类(ImGui 占用 pre/post,
-    //      且 CameraDrawCallback::run 不链式调用嵌套回调),所以挂 initial 槽,
-    //      抓到的是上一帧内容 ----
+    // ---- Headless verification hook: attach the framebuffer grab once the earth
+    //      is ready. Note: this render path only calls back initial/pre/post
+    //      (ImGui occupies pre/post, and CameraDrawCallback::run does not chain
+    //      nested callbacks), so we use the initial slot and grab the previous
+    //      frame's content ----
     if (!shotFile.empty())
     {
         osg::Camera* shotCam = viewer.getCamera();
@@ -484,15 +515,17 @@ int main(int argc, char** argv)
 
     int result = viewer.run();
 
-    // ---- 显式退出清理:先等渲染线程真正停掉(GL 线程还会执行 ImGui 的
-    // PRE/POST_DRAW 回调,与主线程清理竞争会 AV),再关 ImGui、释放场景图,
-    // 避免静态单例析构期访问已销毁对象(同 scene_editor 的退出崩溃修复)----
+    // ---- Explicit exit cleanup: wait for the render thread to really stop (the
+    //      GL thread still runs ImGui's PRE/POST_DRAW callbacks, and racing the
+    //      main thread's cleanup would AV), then shut ImGui down and release the
+    //      scene graph, avoiding access to destroyed objects during static
+    //      singleton destruction (same exit-crash fix as scene_editor) ----
     viewer.stopThreading();
     imgui->shutdown();
     viewer.setSceneData(NULL);
 
-    // AI:先销毁 ChatCore(析构会 join worker 线程,worker 还要用 provider),
-    // 再释放 Provider 本体
+    // AI: destroy ChatCore first (its destructor joins the worker thread, which
+    // still uses the provider), then release the Provider itself
     if (aiCore) { delete aiCore; aiCore = NULL; }
     if (aiProvider) { delete aiProvider; aiProvider = NULL; }
     return result;

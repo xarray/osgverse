@@ -162,7 +162,7 @@ void addStagesToHUD(osgVerse::Pipeline* pipeline, osg::Camera* camera)
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments(&argc, argv);
-    int initFlags = osgVerse::TangentCreation | osgVerse::GaussianSorting;
+    int initFlags = osgVerse::DefaultParameters;
     if (arguments.read("--no-tangent")) initFlags &= ~osgVerse::TangentCreation;
     if (arguments.read("--optimize")) initFlags |= osgVerse::ClassicOptimizing;
 

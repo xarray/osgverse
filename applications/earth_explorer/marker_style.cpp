@@ -5,7 +5,7 @@
 
 namespace earthmark
 {
-    // ---- 1) 单一真源:每层代表徽章登记表 ----
+    // ---- 1) Single source of truth: per-layer representative badge registry ----
     MarkerVisual visualForLayer(const std::string& id)
     {
         static const osg::Vec4 kShipCol(0.208f,0.878f,0.816f,1.f);
@@ -27,7 +27,7 @@ namespace earthmark
             { "satnav",      { MarkerShape::SatBox,       kSatCol } },
             { "satwx",       { MarkerShape::SatBox,       kSatCol } },
             { "starlink",    { MarkerShape::SatBox,       kSatCol } },
-            // 战略各源(id 以 strategic_feed.cpp kDatasets[] 实际值为准,全部 Square):
+            // Strategic sources (ids follow the actual values in strategic_feed.cpp kDatasets[], all Square):
             { "bases",       { MarkerShape::Square,       kStratCol } },
             { "ports",       { MarkerShape::Square,       kStratCol } },
             { "nuclear",     { MarkerShape::Square,       kStratCol } },
@@ -39,9 +39,10 @@ namespace earthmark
         return MarkerVisual{ MarkerShape::Circle, osg::Vec4(0.700f,0.700f,0.720f,1.f) };
     }
 
-    // ---- 2) 共享 GLSL 形状库 ----
-    // 约定:d=pc-0.5。可旋转形状先按 headingRad 旋转。每个形状返回 signed margin(>0 内、<0 外);
-    // markerCoverage 统一 AA:cov=smoothstep(-AA,AA,margin),AA≈0.035;调用方对 cov<=0 discard。
+    // ---- 2) Shared GLSL shape library ----
+    // Convention: d=pc-0.5. Rotatable shapes are first rotated by headingRad. Each shape returns a
+    // signed margin (>0 inside, <0 outside); markerCoverage handles AA uniformly:
+    // cov=smoothstep(-AA,AA,margin), AA≈0.035; the caller discards when cov<=0.
     const char* markerShapeGLSL()
     {
         return
@@ -53,11 +54,11 @@ namespace earthmark
         "float _sdArrow(vec2 r){ float mb=r.y+0.32; float hw=0.30*(0.42-r.y)/0.74; return min(mb, hw-abs(r.x)); }\n"
         "float _sdShip(vec2 r){\n"
         "  float m = 1.0;\n"
-        "  m = min(m, r.y + 0.40);                              // 艉底 y>-0.40\n"
-        "  m = min(m, (0.45 - r.y)*0.28 - (r.x)*0.53 + 0.045);  // 右艏斜边\n"
-        "  m = min(m, (0.45 - r.y)*0.28 + (r.x)*0.53 + 0.045);  // 左艏斜边\n"
-        "  m = min(m, 0.24 - r.x);                              // 右舷\n"
-        "  m = min(m, 0.24 + r.x);                              // 左舷\n"
+        "  m = min(m, r.y + 0.40);                              // stern bottom y>-0.40\n"
+        "  m = min(m, (0.45 - r.y)*0.28 - (r.x)*0.53 + 0.045);  // starboard bow chamfer\n"
+        "  m = min(m, (0.45 - r.y)*0.28 + (r.x)*0.53 + 0.045);  // port bow chamfer\n"
+        "  m = min(m, 0.24 - r.x);                              // starboard\n"
+        "  m = min(m, 0.24 + r.x);                              // port\n"
         "  return m;\n"
         "}\n"
         "float _sdStar(vec2 d){ float a=atan(d.y,d.x); float rr=0.45*(0.52+0.48*abs(cos(2.0*a))); return rr-length(d); }\n"
@@ -87,7 +88,7 @@ namespace earthmark
         "}\n";
     }
 
-    // ---- 3) ImGui 形状绘制(与 GLSL 形状对应) ----
+    // ---- 3) ImGui shape drawing (matches the GLSL shapes) ----
     void drawMarkerIcon(void* imDrawList, MarkerShape shape, float cx, float cy, float sizePx,
                         unsigned int colorU32)
     {
