@@ -63,6 +63,76 @@ public:
     }
 };
 
+/** Handle single left clicks in the 3D view: pick the object under the cursor and select
+    the corresponding item (or the nearest parent item) in the scene hierarchy. */
+class ScenePickHandler : public osgGA::GUIEventHandler
+{
+public:
+    ScenePickHandler(osgVerse::SceneHierarchy* hierarchy, osg::Camera* cam, osg::Node* sceneRoot)
+        : _hierarchy(hierarchy), _camera(cam), _sceneRoot(sceneRoot), _pushX(0.0f), _pushY(0.0f),
+          _pushed(false) {}
+
+    virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH &&
+            ea.getButton() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON)
+        {
+            _pushX = ea.getX(); _pushY = ea.getY(); _pushed = true;
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE && _pushed &&
+                 ea.getButton() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON)
+        {
+            _pushed = false;
+
+            // Never pick when the click belongs to the UI (or a gizmo): otherwise clicking a
+            // hierarchy row would also pick the scene and the two selections would fight.
+            if (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_ALT) return false;
+            if (ImGui::GetCurrentContext() != NULL)
+            {
+                ImGuiIO& io = ImGui::GetIO();
+                if (io.WantCaptureMouse || ImGuizmo::IsUsing()) return false;
+            }
+
+            // Only accept a click, not a camera drag
+            float dx = ea.getX() - _pushX, dy = ea.getY() - _pushY;
+            if (dx * dx + dy * dy > 16.0f) return false;
+
+            osg::Camera* cam = _camera.get(); osg::Node* root = _sceneRoot.get();
+            if (cam == NULL || root == NULL || !_hierarchy.valid()) return false;
+
+            // Build the world-space pick ray from the display camera and intersect the scene
+            osg::Matrix invVP = osg::Matrix::inverse(
+                cam->getViewMatrix() * cam->getProjectionMatrix());
+            osg::Vec3d start = osg::Vec3d(ea.getXnormalized(), ea.getYnormalized(), -1.0) * invVP;
+            osg::Vec3d end = osg::Vec3d(ea.getXnormalized(), ea.getYnormalized(), 1.0) * invVP;
+
+            osgVerse::IntersectionResult result =
+                osgVerse::findNearestIntersection(root, start, end, &_condition);
+
+            // Select the nearest mapped *node* (walking up from the picked drawable). NodeSelector
+            // can only bound osg::Node, so picking the drawable itself would leave no box to show.
+            osgVerse::TreeView::TreeData* item = NULL;
+            if (result.drawable.valid())
+            {
+                for (int i = (int)result.nodePath.size() - 1; i >= 0 && item == NULL; --i)
+                    item = _hierarchy->findItem(result.nodePath[i]);
+            }
+
+            // Nothing hit (empty space, or the sky which is not part of sceneRoot): clear selection
+            if (item != NULL) _hierarchy->selectItem(item, true);
+            else _hierarchy->clearSelection(true);
+        }
+        return false;
+    }
+
+protected:
+    osg::observer_ptr<osgVerse::SceneHierarchy> _hierarchy;
+    osg::observer_ptr<osg::Camera> _camera;
+    osg::observer_ptr<osg::Node> _sceneRoot;
+    osgVerse::IntersectionCondition _condition;
+    float _pushX, _pushY; bool _pushed;
+};
+
 EditorContentHandler::EditorContentHandler()
     : _uiFrameNumber(0)
 {
@@ -118,7 +188,8 @@ EditorContentHandler::EditorContentHandler()
     _hierarchyData->setViewer(g_data.view.get(), g_data.sceneRoot.get());
     _hierarchyData->setItemClickAction(
         [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
-            osg::Object* obj = osgVerse::SceneDataProxy::get<osg::Object*>(item->userData.get());
+            osg::Object* obj = (item != NULL) ?
+                osgVerse::SceneDataProxy::get<osg::Object*>(item->userData.get()) : NULL;
             g_data.selector->clearAllSelectedNodes();
             if (obj != NULL)
             {
@@ -128,7 +199,11 @@ EditorContentHandler::EditorContentHandler()
                 g_data.selector->addSelectedNode(dynamic_cast<osg::Node*>(obj));
             }
             else
-                _interfaces.clear();
+            {
+                // NULL item means "clear": empty the properties panel and the 3D selection
+                _entry = NULL; _interfaces.clear();
+                _navigationData->setSelection(NULL);
+            }
         });
     _hierarchyData->setItemDoubleClickAction(
         [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
@@ -309,6 +384,10 @@ int main(int argc, char** argv)
     imgui->initialize(editorCore.get());
     imgui->addToView(&viewer, postCamera.get());
     imgui->setGuiTexture("Navigation", BASE_DIR + "/textures/navigation.png");
+
+    // Clicking an object in the 3D view selects the matching hierarchy item (and vice versa)
+    viewer.addEventHandler(new ScenePickHandler(editorCore->getHierarchyData(),
+                                                pipeline->getForwardCamera(), sceneRoot.get()));
 
     // Start with test scene
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);

@@ -303,6 +303,33 @@ void SceneHierarchy::refreshItem(TreeView::TreeData* parent)
     if (node != NULL) { HierarchyCreatingVisitor hv(this, parent, false); node->accept(hv); }
 }
 
+TreeView::TreeData* SceneHierarchy::findItem(osg::Object* obj) const
+{
+    NodeToItemMapper::const_iterator itr = _nodeToItemMap.find(obj);
+    return (itr != _nodeToItemMap.end()) ? itr->second.get() : NULL;
+}
+
+void SceneHierarchy::selectItem(TreeView::TreeData* item, bool notify)
+{
+    if (!item) return;
+    _selectedItem = item;
+    if (_treeView.valid())
+    {
+        _treeView->selectedItemID = item->id;
+        item->flags |= ImGuiTreeNodeFlags_Selected;
+    }
+    if (notify && _clickAction) _clickAction(_treeView.get(), item);
+}
+
+void SceneHierarchy::clearSelection(bool notify)
+{
+    if (_selectedItem.valid())
+        _selectedItem->flags &= ~ImGuiTreeNodeFlags_Selected;
+    _selectedItem = NULL;
+    if (_treeView.valid()) _treeView->selectedItemID.clear();
+    if (notify && _clickAction) _clickAction(_treeView.get(), NULL);
+}
+
 bool SceneHierarchy::removeItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph)
 {
     NodeToItemMapper::iterator itr = _nodeToItemMap.find(obj);

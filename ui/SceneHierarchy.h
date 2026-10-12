@@ -47,6 +47,16 @@ namespace osgVerse
         bool removeItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph = true);
         void refreshItem(TreeView::TreeData* parent = NULL);
 
+        /** Find the tree item mapped to a scene object, or NULL if it has no item */
+        TreeView::TreeData* findItem(osg::Object* obj) const;
+
+        /** Programmatically select an item (highlight it in the tree and optionally run
+            the click action). Used for picking a node in the 3D view. */
+        void selectItem(TreeView::TreeData* item, bool notify = true);
+
+        /** Clear the current selection (also runs the click action with a NULL item) */
+        void clearSelection(bool notify = true);
+
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         void showPopupMenu(osgVerse::TreeView::TreeData* item, osgVerse::ImGuiManager* mgr,
                            osgVerse::ImGuiContentHandler* content);
