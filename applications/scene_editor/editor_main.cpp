@@ -85,6 +85,21 @@ EditorContentHandler::EditorContentHandler()
     for (std::map<std::string, std::pair<std::string, GLenum>>::iterator it = glEnums.begin();
          it != glEnums.end(); ++it) { factory->registerGLEnum(it->second.first, it->first, it->second.second); }
 
+    // Reuse a shared GL enum group for properties named differently (e.g. BlendFunc's
+    // SourceRGB/DestinationRGB use the "Blending" group), otherwise their TypeSelector
+    // combo would have no item to select and display as "???".
+    std::map<std::string, std::string> glAliases = osgVerse::createGLEnumPropertyAliases();
+    for (std::map<std::string, std::string>::iterator a = glAliases.begin();
+         a != glAliases.end(); ++a)
+    {
+        for (std::map<std::string, std::pair<std::string, GLenum>>::iterator it = glEnums.begin();
+             it != glEnums.end(); ++it)
+        {
+            if (it->second.first == a->second)
+                factory->registerGLEnum(a->first, it->first, it->second.second);
+        }
+    }
+
     _mainMenu = new osgVerse::MainMenuBar;
     _mainMenu->userData = this;
     createEditorMenu1();

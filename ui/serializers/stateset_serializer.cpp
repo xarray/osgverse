@@ -32,6 +32,19 @@ public:
             SerializerFactory* factory = SerializerFactory::instance();
             if (_object.valid())
                 factory->createInterfaces(_object.get(), _entry.get(), _serializerUIs);
+
+            // Most state attributes never need a user-editable name, so hide the "Name"
+            // field to keep the property panel clean (Program is kept as an exception).
+            if (_object.valid() && _object->className() != std::string("Program"))
+            {
+                for (size_t i = 0; i < _serializerUIs.size(); )
+                {
+                    SerializerInterface* si = dynamic_cast<SerializerInterface*>(_serializerUIs[i].get());
+                    if (si != NULL && si->getPropertyName() == "Name")
+                        _serializerUIs.erase(_serializerUIs.begin() + i);
+                    else ++i;
+                }
+            }
             for (size_t i = 0; i < _serializerUIs.size(); ++i)
                 _serializerUIs[i]->addIndent(2.0f);
         }
@@ -82,7 +95,7 @@ public:
     StateSetSerializerInterface(osg::Object* obj, LibraryEntry* entry,
                                 const LibraryEntry::Property& prop)
     :   ObjectSerializerInterface(obj, entry, prop), _needsRebuild(false)
-    { for (int i = 0; i < 3; ++i) _separator[i] = 0; }
+    { for (int i = 0; i < 3; ++i) { _sectionStart[i] = 0; _sectionCount[i] = 0; } }
 
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
@@ -94,12 +107,15 @@ public:
             _valueObject = newValue; _serializerUIs.clear();
 
             SerializerFactory* factory = SerializerFactory::instance();
+            for (int i = 0; i < 3; ++i) { _sectionStart[i] = 0; _sectionCount[i] = 0; }
             if (_valueObject.valid())
             {
                 LibraryEntry* entry = _entry.valid() ? _entry.get() : new LibraryEntry("osg");
                 osg::StateSet* ss = static_cast<osg::StateSet*>(_valueObject.get());
+
+                // Properties of the StateSet itself, shown before all attributes
                 _valueEntry = factory->createInterfaces(_valueObject.get(), _entry.get(), _serializerUIs);
-                _separator[0] = _serializerUIs.size();
+                size_t numProperties = _serializerUIs.size();
 
                 // Attributes
                 osg::StateSet::AttributeList& attrList = ss->getAttributeList();
@@ -109,9 +125,11 @@ public:
                     _serializerUIs.push_back(new AttributeSerializerInterface(
                         itr->second.first.get(), entry, ss, itr->second.second));
                 }
-                _separator[1] = _serializerUIs.size() - _separator[0];
+                _sectionStart[0] = numProperties;
+                _sectionCount[0] = _serializerUIs.size() - numProperties;
 
                 // Texture attributes
+                size_t numAfterAttributes = _serializerUIs.size();
                 osg::StateSet::TextureAttributeList& texAttrList = ss->getTextureAttributeList();
                 for (size_t i = 0; i < texAttrList.size(); ++i)
                 {
@@ -123,9 +141,11 @@ public:
                             itr->second.first.get(), entry, ss, itr->second.second, i));
                     }
                 }
-                _separator[2] = _serializerUIs.size() - _separator[0] - _separator[1];
+                _sectionStart[1] = numAfterAttributes;
+                _sectionCount[1] = _serializerUIs.size() - numAfterAttributes;
 
                 // Uniforms
+                size_t numAfterTextureAttributes = _serializerUIs.size();
                 osg::StateSet::UniformList& uniforms = ss->getUniformList();
                 for (osg::StateSet::UniformList::iterator itr = uniforms.begin();
                      itr != uniforms.end(); ++itr)
@@ -134,25 +154,28 @@ public:
                     if (uniform == NULL) continue;
                     _serializerUIs.push_back(createUniformSerializerItem(uniform, ss, itr->second.second));
                 }
-                _separator[2] = _serializerUIs.size() - _separator[0] - _separator[1];
+                _sectionStart[2] = numAfterTextureAttributes;
+                _sectionCount[2] = _serializerUIs.size() - numAfterTextureAttributes;
             }
             for (size_t i = 0; i < _serializerUIs.size(); ++i)
                 _serializerUIs[i]->addIndent(2.0f);
         }
 
         bool done = false, rebuild = false;
-        static std::string separatedNames[3] = {"Attributes", "Texture Attributes", "Uniforms"};
-        for (size_t i = 0; i < _serializerUIs.size(); ++i)
+        static const char* separatedNames[3] = {"Attributes", "Texture Attributes", "Uniforms"};
+        for (size_t i = 0; i <= _serializerUIs.size(); ++i)
         {
+            // Print a section header right before the first item of each sub-list
             for (int s = 0; s < 3; ++s)
             {
-                std::string num = " " + std::to_string(_separator[s]);
-                if (_separator[s] > 0 && _separator[s] == i)
+                if (_valueObject.valid() && _sectionStart[s] == i)
                 {
-                    std::string name = TR(separatedNames[s] + num);
+                    std::string name = TR(separatedNames[s]) + " " + std::to_string(_sectionCount[s]);
                     ImGui::Separator(); ImGui::Text("%s", name.c_str());
                 }
             }
+            if (i >= _serializerUIs.size()) break;
+
             done |= _serializerUIs[i]->show(mgr, content);
             if (_serializerUIs[i]->checkStructureChanged()) rebuild = true;
         }
@@ -189,8 +212,52 @@ protected:
         SerializerInterface::showMenuItems(mgr, content);
     }
 
-    size_t _separator[3];
+    size_t _sectionStart[3], _sectionCount[3];
     bool _needsRebuild;
 };
 
+class RenderingHintSerializerInterface : public SerializerInterface
+{
+public:
+    RenderingHintSerializerInterface(osg::Object* obj, LibraryEntry* entry,
+                                     const LibraryEntry::Property& prop)
+    :   SerializerInterface(obj, entry, prop, false)
+    {
+        // osg::StateSet::RenderingHint has only three valid choices
+        static const int hintValues[3] = { osg::StateSet::DEFAULT_BIN,
+                                           osg::StateSet::TRANSPARENT_BIN,
+                                           osg::StateSet::OPAQUE_BIN };
+        _combo = new ComboBox(TR(_property.name) + _postfix);
+        _combo->tooltip = tooltip(_property);
+        _combo->items.push_back("DEFAULT_BIN");
+        _combo->items.push_back("TRANSPARENT_BIN");
+        _combo->items.push_back("OPAQUE_BIN");
+        _combo->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+        {
+            if (_entry->setProperty(_object.get(), _property.name, hintValues[_combo->index]))
+                doneEditing();
+        };
+    }
+
+    virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
+    {
+        if (isDirty())
+        {
+            int value = (int)osg::StateSet::DEFAULT_BIN;
+            _entry->getProperty(_object.get(), _property.name, value);
+            _combo->index = 0;
+            if (value == (int)osg::StateSet::TRANSPARENT_BIN) _combo->index = 1;
+            else if (value == (int)osg::StateSet::OPAQUE_BIN) _combo->index = 2;
+        }
+        return _combo->show(mgr, content);
+    }
+
+    virtual int createSpiderNode(SpiderEditor* spider, bool getter, bool setter)
+    { return -1; }  // TODO
+
+protected:
+    osg::ref_ptr<ComboBox> _combo;
+};
+
 REGISTER_SERIALIZER_INTERFACE2(StateSet, NULL, StateSetSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE2(RenderingHint, NULL, RenderingHintSerializerInterface)

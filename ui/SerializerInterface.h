@@ -56,6 +56,8 @@ namespace osgVerse
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         virtual int createSpiderNode(SpiderEditor* spider, bool getter, bool setter);
 
+        const std::string& getPropertyName() const { return _property.name; }
+
     protected:
         osg::ref_ptr<LibraryEntry> _entry;
         LibraryEntry::Property _property;

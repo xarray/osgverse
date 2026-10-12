@@ -454,6 +454,10 @@ namespace osgVerse
     /** Get OpenGL enum name and corresponding group/value pairs */
     OSGVERSE_RW_EXPORT std::map<std::string, std::pair<std::string, GLenum>> createGLEnumMapper();
 
+    /** Get property-name to GL enum group aliases (for properties whose name differs
+        from the semantic group name returned by createGLEnumMapper) */
+    OSGVERSE_RW_EXPORT std::map<std::string, std::string> createGLEnumPropertyAliases();
+
     /** Setup KTX trancoding flags */
     OSGVERSE_RW_EXPORT void setReadingKtxFlag(ReadingKtxFlag flag, int value);
 }

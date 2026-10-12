@@ -152,7 +152,7 @@ public:
         _kind = getUniformValueKind(_type);
         _name = uniform ? uniform->getName() : "";
 
-        _valueField = new InputValueField(TR(_name) + _postfix);
+        _valueField = new InputValueField("##value" + _postfix);
         _valueField->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             double v[4] = { _valueField->value, 0.0, 0.0, 0.0 };
@@ -160,7 +160,7 @@ public:
             if (u != NULL && writeUniformValue(u, v)) doneEditing();
         };
 
-        _vectorField = new InputVectorField(TR(_name) + _postfix);
+        _vectorField = new InputVectorField("##vector" + _postfix);
         _vectorField->vecNumber = (_components > 0) ? _components : 1;
         _vectorField->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
@@ -171,7 +171,7 @@ public:
             if (u != NULL && writeUniformValue(u, v)) doneEditing();
         };
 
-        _boolCheck = new CheckBox(TR(_name) + _postfix, false);
+        _boolCheck = new CheckBox("##bool" + _postfix, false);
         _boolCheck->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             double v[4] = { _boolCheck->value ? 1.0 : 0.0, 0.0, 0.0, 0.0 };
@@ -190,7 +190,8 @@ public:
 
     virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
-        std::string title = TR(_name) + " [" + osg::Uniform::getTypename(_type) + "]" + _postfix;
+        // The uniform type is already shown by showProperty(), so only keep the name here
+        std::string title = TR(_name) + _postfix;
         if (_unit >= 0) title = TR("Unit" + std::to_string(_unit) + ": ") + title;
         return showInternal(mgr, content, title);
     }

@@ -368,7 +368,7 @@ const char* osgv_builtinGLEnumMappings[] =
     GL_CONST(GL_SAMPLES_PASSED                 0x8914, "0")
     GL_CONST(GL_SRC1_ALPHA                     0x8589, "0")
     // GL_VERSION_2_0
-    GL_CONST(GL_BLEND_EQUATION_RGB             0x8009, "Blending")
+    GL_CONST(GL_BLEND_EQUATION_RGB             0x8009, "BlendingEquation")
     GL_CONST(GL_VERTEX_ATTRIB_ARRAY_ENABLED    0x8622, "0")
     GL_CONST(GL_VERTEX_ATTRIB_ARRAY_SIZE       0x8623, "0")
     GL_CONST(GL_VERTEX_ATTRIB_ARRAY_STRIDE     0x8624, "0")
@@ -397,7 +397,7 @@ const char* osgv_builtinGLEnumMappings[] =
     GL_CONST(GL_DRAW_BUFFER13                  0x8832, "DrawBuffer")
     GL_CONST(GL_DRAW_BUFFER14                  0x8833, "DrawBuffer")
     GL_CONST(GL_DRAW_BUFFER15                  0x8834, "DrawBuffer")
-    GL_CONST(GL_BLEND_EQUATION_ALPHA           0x883D, "Blending")
+    GL_CONST(GL_BLEND_EQUATION_ALPHA           0x883D, "BlendingEquation")
     GL_CONST(GL_MAX_VERTEX_ATTRIBS             0x8869, "0")
     GL_CONST(GL_VERTEX_ATTRIB_ARRAY_NORMALIZED 0x886A, "0")
     GL_CONST(GL_MAX_TEXTURE_IMAGE_UNITS        0x8872, "0")
@@ -733,6 +733,19 @@ const char* osgv_builtinGLEnumMappings[] =
 
 namespace osgVerse
 {
+    // Some osg::StateAttribute properties expose GL enums under names that differ from the
+    // semantic group name used in osgv_builtinGLEnumMappings, so their TypeSelector combo
+    // would otherwise have no items (and display as "???"). Map the property to its group.
+    static const char* osgv_glEnumPropertyAliases[] =
+    {
+        // osg::BlendFunc: _source_factor / _destination_factor (and the *Alpha variants)
+        "SourceRGB", "Blending",
+        "SourceAlpha", "Blending",
+        "DestinationRGB", "Blending",
+        "DestinationAlpha", "Blending",
+        ""  // end of list
+    };
+
     std::map<std::string, std::pair<std::string, GLenum>> createGLEnumMapper()
     {
         static std::map<std::string, std::pair<std::string, GLenum>> glEnums;
@@ -744,5 +757,16 @@ namespace osgVerse
             glEnums[key] = std::pair<std::string, GLenum>(g, (GLenum)value);
         }
         return glEnums;
+    }
+
+    std::map<std::string, std::string> createGLEnumPropertyAliases()
+    {
+        std::map<std::string, std::string> aliases;
+        for (int i = 0; ; i += 2)
+        {
+            std::string p = osgv_glEnumPropertyAliases[i]; if (p.length() == 0) break;
+            aliases[p] = osgv_glEnumPropertyAliases[i + 1];
+        }
+        return aliases;
     }
 }
