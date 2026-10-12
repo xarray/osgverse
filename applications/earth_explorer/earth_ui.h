@@ -19,7 +19,15 @@ struct EnvironmentState
     std::atomic<float> sunAngle;     // Sun azimuth (radians)
     std::atomic<int> oceanOpaque;    // Ocean opacity 0/1
     std::atomic<bool> goHome;        // Request view reset (executed on the main thread)
-    EnvironmentState() { sunAngle = 0.0f; oceanOpaque = 0; goHome = false; }
+    // Feature focus request (double-click in the feature list): the UI draw thread only
+    // records the target location, and the main-thread update callback performs the jump
+    std::atomic<double> focusLat, focusLon;   // degrees
+    std::atomic<bool> focusRequest;
+    EnvironmentState()
+    {
+        sunAngle = 0.0f; oceanOpaque = 0; goHome = false;
+        focusLat = 0.0; focusLon = 0.0; focusRequest = false;
+    }
 };
 
 // ImGui main interface: layer catalog / data source status / feature detail
@@ -50,6 +58,8 @@ protected:
     virtual ~EarthUIHandler() {}
 
     void drawLayerPanel(osgVerse::ImGuiManager* m);
+    void drawFeatureListPanel(osgVerse::ImGuiManager* m);
+    void drawHoverPopup(osgVerse::ImGuiManager* m);
     void drawDetailCard(osgVerse::ImGuiManager* m);
     void drawEnvironmentPanel(osgVerse::ImGuiManager* m);
     void drawChatPanel(osgVerse::ImGuiManager* m);

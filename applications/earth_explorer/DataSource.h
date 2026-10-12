@@ -1,6 +1,7 @@
 #ifndef EARTH_DATA_SOURCE_H
 #define EARTH_DATA_SOURCE_H
 
+#include <osg/Array>
 #include <osg/Geode>
 #include <osg/Group>
 #include <osgGA/GUIEventHandler>
@@ -38,14 +39,29 @@ namespace earthds
         std::string url;               // nullable: link for the detail card "Open" button
     };
 
-    // Currently selected feature across all sources (written by pick handler, read by UI, locked internally)
+    // Currently selected feature across all sources (written by pick handler / UI, read by UI
+    // and by each source's highlight pass, locked internally). index = record index inside its
+    // source (-1 = none).
     struct Selection
     {
         bool valid = false;
         std::string title, detail, url, sourceId;
+        int index = -1;
     };
     Selection currentSelection();
     void clearSelection();
+
+    // Feature currently under the mouse cursor across all sources (written by the
+    // hover pick handler, read by the UI draw thread, locked internally). The
+    // position is in ImGui screen coordinates (origin top-left, pixels).
+    struct HoverInfo
+    {
+        bool valid = false;
+        std::string title, detail, url, sourceId;
+        float x = 0.0f, y = 0.0f;
+    };
+    HoverInfo currentHover();
+    void clearHover();
 
     class DataSource : public osg::Referenced
     {
@@ -66,6 +82,20 @@ namespace earthds
         // Copy the first maxN feature titles (used as samples by the AI assistant's
         // get_data_summary; locked copy)
         void sampleTitles(std::vector<std::string>& out, size_t maxN) const;
+
+        // Locked copy of the current feature snapshot (UI feature list / AI)
+        void snapshotPoints(std::vector<DataPoint>& out) const;
+        // Locked single-feature access by index (UI list rows); false when out of range
+        bool pointAt(size_t index, DataPoint& out) const;
+        // Locked geographic location (degrees) of the i-th feature; false when out of range
+        bool pointLatLon(size_t index, double& lat, double& lon) const;
+        // Nearest feature under (mx, my) inside this source WITHOUT touching the
+        // global selection (used for hover). mx/my are window pixels (Y up);
+        // dist2Out receives the squared pixel distance of the hit, indexOut its record index.
+        bool pickNearest(osg::Camera* cam, float mx, float my,
+                         DataPoint& out, float& dist2Out, size_t* indexOut = NULL) const;
+        // Commit the i-th feature as the current selection (shows the detail card)
+        void selectPoint(size_t index);
 
         // Root node attached to the scene (contains the fetch thread, joined on node destruction)
         osg::Group* root() { return _root; }
@@ -92,6 +122,8 @@ namespace earthds
         int _shapeId;                       // earthmark::visualForLayer(id).shape
         osg::Group* _root;
         osg::ref_ptr<osg::Geode> _geode;
+        osg::ref_ptr<osg::Vec4Array> _colors;  // per-vertex colors of _geode (highlighted in place)
+        int _appliedSelIndex;                  // record index currently highlighted (-2 = unknown)
         osg::ref_ptr<osg::StateSet> _ss;
         std::vector<Record> _records;
         Snapshot _pending;

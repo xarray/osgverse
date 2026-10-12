@@ -52,7 +52,7 @@ if not %errorlevel%==0 (
 )
 
 if not exist %OpenSceneGraphRoot%\ (
-    git clone https://gitee.com/mirrors/OpenSceneGraph.git %OpenSceneGraphRoot%\
+    git clone https://gitee.com/mirrors/OpenSceneGraph.git --depth 1 --branch OpenSceneGraph-3.6.5 %OpenSceneGraphRoot%\
     if not exist %OpenSceneGraphRoot%\ (
         echo OSG source folder not found. Please download and unzip it in ..\OpenSceneGraph.
         goto exit

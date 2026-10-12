@@ -139,7 +139,7 @@ static bool readUniformList(InputStream& is, InputUserData& ud)
     unsigned int size = is.readSize(); is >> is.BEGIN_BRACKET;
     for ( unsigned int i=0; i<size; ++i )
     {
-        ObjectTypeAndID uniform = ud.readObjectFromStream(is, "osg::UniformBase");
+        ObjectTypeAndID uniform = ud.readObjectFromStream(is, "osg::Uniform");
         is >> is.PROPERTY("Value");
         int value = readValue( is );
         if ( uniform.valid() )

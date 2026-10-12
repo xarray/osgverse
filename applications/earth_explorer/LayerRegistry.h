@@ -26,6 +26,13 @@ struct OverlayLayer
     std::function<int(std::string&)> fetchStatus;
     // Called on the main thread when enabled changes (attach/detach scene subgraph, start/stop threads, etc.)
     std::function<void(const OverlayLayer&)> apply;
+    // Feature-list hooks (PointFeed layers): the UI enumerates the loaded features
+    // (title list) and can activate one to show its detail card. Empty = no features.
+    std::function<size_t()> featureCount;
+    std::function<std::string(size_t)> featureTitle;
+    std::function<void(size_t)> featureActivate;
+    // Feature location in degrees (for "double click to fly there"). false = out of range.
+    std::function<bool(size_t, double&, double&)> featureLatLon;
 };
 
 class LayerRegistry

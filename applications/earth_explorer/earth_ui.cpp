@@ -56,9 +56,11 @@ void EarthUIHandler::runInternal(osgVerse::ImGuiManager* m)
     }
 
     drawLayerPanel(m);
+    drawFeatureListPanel(m);
     drawDetailCard(m);
     drawEnvironmentPanel(m);
     drawChatPanel(m);
+    drawHoverPopup(m);
 }
 
 void EarthUIHandler::drawLayerPanel(osgVerse::ImGuiManager* m)
@@ -156,6 +158,99 @@ void EarthUIHandler::drawLayerPanel(osgVerse::ImGuiManager* m)
                 ImGui::SetTooltip("%s", layer.subtitle.c_str());
             ImGui::PopID();
         }
+    }
+    ImGui::End();
+}
+
+void EarthUIHandler::drawFeatureListPanel(osgVerse::ImGuiManager* m)
+{
+    // Feature titles of every enabled point source, kept in sync with the loaded
+    // data (the count/title hooks read the source's locked snapshot each frame).
+    // Clicking a row activates that feature, showing its detail card.
+    if (!_layers) return;
+    std::vector<OverlayLayer> layers = _layers->layersSnapshot();
+
+    bool any = false;
+    for (size_t i = 0; i < layers.size(); ++i)
+        if (layers[i].enabled && layers[i].featureCount && layers[i].featureCount() > 0)
+        { any = true; break; }
+    if (!any) return;
+
+    ImGui::SetNextWindowPos(ImVec2(16.0f, 480.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(330.0f, 300.0f), ImGuiCond_FirstUseEver);
+    ImGui::Begin(u8"Features");
+
+    ImGui::BeginChild("feature_list", ImVec2(0.0f, 0.0f), false);
+    earthds::Selection sel = earthds::currentSelection();
+    for (size_t i = 0; i < layers.size(); ++i)
+    {
+        const OverlayLayer& layer = layers[i];
+        if (!layer.enabled || !layer.featureCount) continue;
+        size_t count = layer.featureCount();
+        if (count == 0) continue;
+
+        ImGui::PushID(layer.id.c_str());
+        ImGui::TextDisabled("%s (%zu)", layer.displayName.c_str(), count);
+        ImGui::Indent(12.0f);
+        for (size_t k = 0; k < count; ++k)
+        {
+            std::string title = layer.featureTitle ? layer.featureTitle(k) : std::string();
+            if (title.empty()) title = "(untitled)";
+            // Single selection: only the globally selected feature is shown as selected
+            bool selected = (sel.valid && sel.sourceId == layer.id && sel.index == (int)k);
+            ImGui::PushID((int)k);
+            if (ImGui::Selectable(title.c_str(), selected))
+            {
+                if (layer.featureActivate) layer.featureActivate(k);
+            }
+            // Double click: fly the camera to that feature (deferred to the main thread)
+            if (_env && layer.featureLatLon && ImGui::IsItemHovered()
+                && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            {
+                double lat = 0.0, lon = 0.0;
+                if (layer.featureLatLon(k, lat, lon))
+                {
+                    _env->focusLat = lat; _env->focusLon = lon; _env->focusRequest = true;
+                }
+            }
+            ImGui::PopID();
+        }
+        ImGui::Unindent(12.0f);
+        ImGui::Spacing();
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+    ImGui::End();
+}
+
+void EarthUIHandler::drawHoverPopup(osgVerse::ImGuiManager* m)
+{
+    // Popup shown while the mouse hovers a feature marker on the globe (hover
+    // state is produced by mouse-move picking in the data source manager).
+    earthds::HoverInfo hover = earthds::currentHover();
+    if (!hover.valid) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    const float pad = 18.0f;
+    float x = hover.x + pad, y = hover.y + pad;
+    if (x > io.DisplaySize.x - 80.0f) x = hover.x - 280.0f;  // flip left near the right edge
+    if (y > io.DisplaySize.y - 80.0f) y = hover.y - 140.0f;  // flip up near the bottom edge
+
+    ImGui::SetNextWindowPos(ImVec2(x, y), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.92f);
+    ImGui::Begin("##hover_popup", NULL,
+                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                 | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize
+                 | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav
+                 | ImGuiWindowFlags_NoBringToFrontOnFocus);
+    ImGui::TextUnformatted(hover.title.c_str());
+    if (!hover.detail.empty())
+    {
+        ImGui::Separator();
+        std::istringstream lines(hover.detail);
+        std::string line;
+        while (std::getline(lines, line))
+            if (!line.empty()) ImGui::TextUnformatted(line.c_str());
     }
     ImGui::End();
 }
@@ -333,6 +428,20 @@ void EnvironmentUpdater::operator()(osg::Node* node, osg::NodeVisitor* nv)
         {
             _env->goHome = false;
             if (_manipulator) _manipulator->home(0.0);
+        }
+        if (_env->focusRequest)
+        {
+            // Double-click in the feature list: recenter on the target lat/lon while
+            // keeping the current eye altitude (so the zoom level is preserved)
+            _env->focusRequest = false;
+            osgVerse::EarthManipulator* em =
+                dynamic_cast<osgVerse::EarthManipulator*>(_manipulator);
+            if (em)
+            {
+                double alt = em->computeEyeLatLonHeight().z();
+                em->setByEye(osg::inDegrees(_env->focusLat.load()),
+                             osg::inDegrees(_env->focusLon.load()), alt);
+            }
         }
     }
     traverse(node, nv);

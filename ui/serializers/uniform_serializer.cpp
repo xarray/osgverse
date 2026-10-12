@@ -1,5 +1,4 @@
 #include <osg/Uniform>
-#include <osg/UniformBase>
 #include <osg/StateSet>
 #include "serializer_utils.h"
 #include <cstdio>
@@ -141,7 +140,7 @@ namespace
 class UniformSerializerInterface : public SerializerBaseItem
 {
 public:
-    UniformSerializerInterface(osg::UniformBase* uniform, osg::StateSet* parent,
+    UniformSerializerInterface(osg::Uniform* uniform, osg::StateSet* parent,
                                int value, int unit = -1)
     :   SerializerBaseItem(uniform, true), _uniform(dynamic_cast<osg::Uniform*>(uniform)),
         _parent(parent), _value(value), _unit(unit)
@@ -355,5 +354,5 @@ private:
 };
 
 SerializerBaseItem* osgVerse::createUniformSerializerItem(
-    osg::UniformBase* uniform, osg::StateSet* parent, int value, int unit)
+    osg::Uniform* uniform, osg::StateSet* parent, int value, int unit)
 { return new UniformSerializerInterface(uniform, parent, value, unit); }

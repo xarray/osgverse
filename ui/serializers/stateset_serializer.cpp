@@ -130,7 +130,7 @@ public:
                 for (osg::StateSet::UniformList::iterator itr = uniforms.begin();
                      itr != uniforms.end(); ++itr)
                 {
-                    osg::UniformBase* uniform = itr->second.first.get();
+                    osg::Uniform* uniform = itr->second.first.get();
                     if (uniform == NULL) continue;
                     _serializerUIs.push_back(createUniformSerializerItem(uniform, ss, itr->second.second));
                 }

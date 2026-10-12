@@ -40,7 +40,7 @@ if [ "$CheckCmakeExe" = "" ]; then
 fi
 
 if [ ! -d "../OpenSceneGraph" ]; then
-    git clone https://gitee.com/mirrors/OpenSceneGraph.git ../OpenSceneGraph
+    git clone https://gitee.com/mirrors/OpenSceneGraph.git --depth 1 --branch OpenSceneGraph-3.6.5 ../OpenSceneGraph
     if [ ! -d "../OpenSceneGraph" ]; then
         echo "OSG source folder not found. Please download and unzip it in ../OpenSceneGraph."
         exit 1

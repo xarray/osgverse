@@ -24,6 +24,9 @@ namespace earthds
         const float kDragThreshPx2 = 25.0f;     // square of the 5px drag threshold
         const float kPickExtraRadiusPx = 10.0f; // pick tolerance: pixel margin outside the point radius
 
+        // Color used to highlight the currently selected feature on the globe
+        const osg::Vec4 kHighlightColor(1.0f, 0.85f, 0.15f, 1.0f);
+
         // Point sprite vertex shader: color/size come from DataPoint; front hemisphere culling
         // (replacing the depth test) — the point vertex is an ECEF world coordinate, and after
         // transforming to camera space the earth center Cv=MV*origin, camera at origin, the
@@ -68,11 +71,18 @@ namespace earthds
 #ifndef GL_PROGRAM_POINT_SIZE
 #define GL_PROGRAM_POINT_SIZE 0x8642
 #endif
+#ifndef GL_POINT_SPRITE
+#define GL_POINT_SPRITE 0x8861
+#endif
 
         // Global selection state (written only by the main/event thread, read by the UI draw
         // thread, with a lock)
         OpenThreads::Mutex& globalSelMutex() { static OpenThreads::Mutex m; return m; }
         Selection& globalSelStorage() { static Selection s; return s; }
+
+        // Global hover state (mouse-move picking, same threading contract as the selection)
+        OpenThreads::Mutex& globalHoverMutex() { static OpenThreads::Mutex m; return m; }
+        HoverInfo& globalHoverStorage() { static HoverInfo h; return h; }
 
         // HTTP GET (with connection-layer retry): a non-empty body means success. loadFileData
         // itself carries an 8s connect / 15s total timeout and a persistent connection per
@@ -107,6 +117,18 @@ namespace earthds
     {
         OpenThreads::ScopedLock<OpenThreads::Mutex> lk(globalSelMutex());
         globalSelStorage() = Selection();
+    }
+
+    HoverInfo currentHover()
+    {
+        OpenThreads::ScopedLock<OpenThreads::Mutex> lk(globalHoverMutex());
+        return globalHoverStorage();
+    }
+
+    void clearHover()
+    {
+        OpenThreads::ScopedLock<OpenThreads::Mutex> lk(globalHoverMutex());
+        globalHoverStorage() = HoverInfo();
     }
 
     // ===== fetch thread =====
@@ -145,7 +167,7 @@ namespace earthds
     // ===== DataSource =====
     DataSource::DataSource(const earthee::SourceConfig& cfg)
     :   _cfg(cfg), _shapeId((int)earthmark::visualForLayer(cfg.id).shape), _root(NULL),
-        _enabled(false), _fetchState(0), _dirty(false), _tick(0), _thread(NULL)
+        _appliedSelIndex(-2), _enabled(false), _fetchState(0), _dirty(false), _tick(0), _thread(NULL)
     {
         // Point sprite shader + StateSet: depth test off (renderBin 11 ensures drawing after the surface)
         osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, feedVertCode);
@@ -160,6 +182,14 @@ namespace earthds
         _ss = new osg::StateSet;
         _ss->setAttributeAndModes(prog.get(), osg::StateAttribute::ON);
         _ss->setMode(GL_PROGRAM_POINT_SIZE, osg::StateAttribute::ON);
+#if !defined(OSG_GL3_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
+        // Point sizes come from the shader, but the per-fragment gl_PointCoord used by
+        // markerCoverage() still needs point sprites to be explicitly enabled on a
+        // compatibility profile / GLES2 (the capability was removed in core profiles,
+        // where point sprites are always on). Without it gl_PointCoord is undefined,
+        // markerCoverage() returns 0 for every fragment and all markers are discarded.
+        _ss->setMode(GL_POINT_SPRITE, osg::StateAttribute::ON);
+#endif
         _ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
         _ss->setRenderBinDetails(11, "RenderBin");
 
@@ -267,16 +297,30 @@ namespace earthds
 
     void DataSource::syncIfDirty()
     {
-        Snapshot snap;
+        Snapshot snap; bool rebuild = false;
         {
             OpenThreads::ScopedLock<OpenThreads::Mutex> lk(_mutex);
-            if (!_dirty) return;
-            std::swap(snap, _pending); _dirty = false;
-            _records = std::move(snap.records);
+            if (_dirty)
+            { std::swap(snap, _pending); _dirty = false; _records = std::move(snap.records); rebuild = true; }
         }
-        if (_geode.valid()) _root->removeChild(_geode.get());
-        _geode = buildGeodeFrom(_records);
-        _root->addChild(_geode.get());
+        if (rebuild)
+        {
+            if (_geode.valid()) _root->removeChild(_geode.get());
+            _geode = buildGeodeFrom(_records);
+            _root->addChild(_geode.get());
+            _appliedSelIndex = -2;   // fresh colors, force the highlight pass below to re-apply
+        }
+
+        // Recolor the selected feature so the globe highlight matches the UI list. Runs on the
+        // update thread (same as the rebuild) and only when the selection actually changed.
+        if (!_colors.valid()) return;
+        Selection sel = currentSelection();
+        int want = (sel.valid && sel.sourceId == _cfg.id) ? sel.index : -1;
+        if (want == _appliedSelIndex) return;
+        for (size_t i = 0; i < _colors->size() && i < _records.size(); ++i)
+            (*_colors)[i] = ((int)i == want) ? kHighlightColor : _records[i].pt.color;
+        _colors->dirty();
+        _appliedSelIndex = want;
     }
 
     osg::Geode* DataSource::buildGeodeFrom(const std::vector<Record>& recs)
@@ -297,6 +341,7 @@ namespace earthds
         geom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, (GLsizei)verts->size()));
         geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
         geom->setCullingActive(false);
+        _colors = colors;   // keep the color array so the selection highlight can recolor it in place
 
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;
         geode->addDrawable(geom.get());
@@ -315,11 +360,34 @@ namespace earthds
         }
     }
 
-    void DataSource::pickAt(osg::Camera* cam, float mx, float my)
+    void DataSource::snapshotPoints(std::vector<DataPoint>& out) const
+    {
+        OpenThreads::ScopedLock<OpenThreads::Mutex> lk(_mutex);
+        out.clear(); out.reserve(_records.size());
+        for (size_t i = 0; i < _records.size(); ++i)
+            out.push_back(_records[i].pt);
+    }
+
+    bool DataSource::pointAt(size_t index, DataPoint& out) const
+    {
+        OpenThreads::ScopedLock<OpenThreads::Mutex> lk(_mutex);
+        if (index >= _records.size()) return false;
+        out = _records[index].pt; return true;
+    }
+
+    bool DataSource::pointLatLon(size_t index, double& lat, double& lon) const
+    {
+        OpenThreads::ScopedLock<OpenThreads::Mutex> lk(_mutex);
+        if (index >= _records.size()) return false;
+        lat = _records[index].pt.lat; lon = _records[index].pt.lon; return true;
+    }
+
+    bool DataSource::pickNearest(osg::Camera* cam, float mx, float my,
+                                 DataPoint& out, float& dist2Out, size_t* indexOut) const
     {
         std::vector<Record> recs;
         { OpenThreads::ScopedLock<OpenThreads::Mutex> lk(_mutex); recs = _records; }
-        if (!_enabled || recs.empty() || !cam->getViewport()) return;
+        if (!_enabled || recs.empty() || !cam->getViewport()) return false;
         osg::Vec3d eye, center, up; cam->getViewMatrixAsLookAt(eye, center, up);
         osg::Matrixd VPW = cam->getViewMatrix() * cam->getProjectionMatrix()
                          * cam->getViewport()->computeWindowMatrix();
@@ -333,11 +401,31 @@ namespace earthds
             float tol = recs[i].pt.sizePx * 0.5f + kPickExtraRadiusPx;
             if (d2 < (double)(tol * tol) && d2 < bestD2) { bestD2 = d2; best = (int)i; }
         }
-        if (best >= 0)
+        if (best < 0) return false;
+        out = recs[best].pt; dist2Out = (float)bestD2;
+        if (indexOut) *indexOut = (size_t)best;
+        return true;
+    }
+
+    void DataSource::selectPoint(size_t index)
+    {
+        DataPoint pt;
+        if (!pointAt(index, pt)) return;
+        Selection s;
+        s.valid = true; s.title = pt.title; s.detail = pt.detail;
+        s.url = pt.url; s.sourceId = _cfg.id; s.index = (int)index;
+        OpenThreads::ScopedLock<OpenThreads::Mutex> lk(globalSelMutex());
+        globalSelStorage() = s;
+    }
+
+    void DataSource::pickAt(osg::Camera* cam, float mx, float my)
+    {
+        DataPoint pt; float d2 = 0.0f; size_t index = 0;
+        if (pickNearest(cam, mx, my, pt, d2, &index))
         {
             Selection s;
-            s.valid = true; s.title = recs[best].pt.title; s.detail = recs[best].pt.detail;
-            s.url = recs[best].pt.url; s.sourceId = _cfg.id;
+            s.valid = true; s.title = pt.title; s.detail = pt.detail;
+            s.url = pt.url; s.sourceId = _cfg.id; s.index = (int)index;
             OpenThreads::ScopedLock<OpenThreads::Mutex> lk(globalSelMutex());
             globalSelStorage() = s;
         }
@@ -387,8 +475,9 @@ namespace earthds
     // ===== DataSourceManager =====
     namespace
     {
-        // Pick handler shared by all sources: a single click iterates over every source (front
-        // hemisphere culling + pixel tolerance happen inside each source).
+        // Pick/hover handler shared by all sources: a click selects the nearest feature
+        // (front hemisphere culling + pixel tolerance happen inside each source), and a
+        // mouse move publishes the feature under the cursor as the hover state.
         // It holds a ref_ptr snapshot instead of raw pointers — the manager guarantees source
         // lifetimes, but the handler may still be triggered by the viewer after the manager is
         // destroyed (during shutdown), so ref_ptr prevents dangling.
@@ -396,33 +485,59 @@ namespace earthds
         {
         public:
             ManagerPickHandler(const std::vector<osg::ref_ptr<DataSource>>& sources)
-            : _sources(sources), _pushed(false) {}
+            : _sources(sources), _pushed(false), _downX(0.0f), _downY(0.0f) {}
 
             virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
             {
-                if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH
-                    && ea.getButton() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON)
+                osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+                osg::Camera* cam = view->getCamera();
+                const osg::Viewport* vp = cam ? cam->getViewport() : NULL;
+                if (!vp) return false;
+                // Do not pick scene features while the mouse is over an ImGui panel (prevents click-through)
+                const bool overImGui = ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse;
+
+                if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE)
+                {
+                    if (overImGui) { clearHover(); return false; }
+                    // OSG pick math expects bottom-left origin; ImGui expects top-left
+                    float my = ea.getY(), imguiY = ea.getY();
+                    if (ea.getMouseYOrientation() == osgGA::GUIEventAdapter::Y_INCREASING_DOWNWARDS)
+                        my = (float)vp->height() - my;
+                    else
+                        imguiY = (float)vp->height() - imguiY;
+
+                    DataPoint bestPt; std::string bestId; float bestD2 = 1e18f; bool hit = false;
+                    for (size_t i = 0; i < _sources.size(); ++i)
+                    {
+                        DataPoint pt; float d2 = 0.0f;
+                        if (_sources[i]->pickNearest(cam, ea.getX(), my, pt, d2) && d2 < bestD2)
+                        { bestD2 = d2; bestPt = pt; bestId = _sources[i]->config().id; hit = true; }
+                    }
+                    if (hit)
+                    {
+                        HoverInfo h;
+                        h.valid = true; h.title = bestPt.title; h.detail = bestPt.detail;
+                        h.url = bestPt.url; h.sourceId = bestId;
+                        h.x = ea.getX(); h.y = imguiY;
+                        OpenThreads::ScopedLock<OpenThreads::Mutex> lk(globalHoverMutex());
+                        globalHoverStorage() = h;
+                    }
+                    else clearHover();
+                }
+                else if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH
+                         && ea.getButton() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON)
                 { _downX = ea.getX(); _downY = ea.getY(); _pushed = true; }
                 else if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE
                          && ea.getButton() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON)
                 {
                     float dx = ea.getX() - _downX, dy = ea.getY() - _downY;
-                    // Do not pick scene features while the mouse is over an ImGui panel (prevents click-through)
-                    bool overImGui = ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse;
                     if (_pushed && dx * dx + dy * dy < kDragThreshPx2 && !overImGui)
                     {
-                        osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
-                        osg::Camera* cam = view->getCamera();
-                        const osg::Viewport* vp = cam->getViewport();
-                        if (vp)
-                        {
-                            float my = ea.getY();
-                            if (ea.getMouseYOrientation() ==
-                                osgGA::GUIEventAdapter::Y_INCREASING_DOWNWARDS)
-                                my = vp->height() - my;
-                            for (size_t i = 0; i < _sources.size(); ++i)
-                                _sources[i]->pickAt(cam, ea.getX(), my);
-                        }
+                        float my = ea.getY();
+                        if (ea.getMouseYOrientation() == osgGA::GUIEventAdapter::Y_INCREASING_DOWNWARDS)
+                            my = (float)vp->height() - my;
+                        for (size_t i = 0; i < _sources.size(); ++i)
+                            _sources[i]->pickAt(cam, ea.getX(), my);
                     }
                     _pushed = false;
                 }
@@ -471,6 +586,17 @@ namespace earthds
             };
             layer.apply = [source](const OverlayLayer& l)
             { source->setEnabled(l.enabled); };
+            // Feature-list hooks: the UI enumerates the loaded features by title and
+            // can activate one to show its detail card (works for every PointFeed source)
+            layer.featureCount = [source]() -> size_t { return source->pointCount(); };
+            layer.featureTitle = [source](size_t i) -> std::string
+            {
+                DataPoint pt;
+                return source->pointAt(i, pt) ? pt.title : std::string();
+            };
+            layer.featureActivate = [source](size_t i) { source->selectPoint(i); };
+            layer.featureLatLon = [source](size_t i, double& lat, double& lon)
+            { return source->pointLatLon(i, lat, lon); };
             layers.add(layer);
 
             if (layer.enabled) source->setEnabled(true);  // enabled on startup

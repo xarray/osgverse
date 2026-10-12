@@ -3,7 +3,6 @@
 
 #include <osg/Array>
 #include <osg/Uniform>
-#include <osg/UniformBase>
 #include <osg/Program>
 #include <osg/Shader>
 #include <osg/StateSet>
@@ -16,7 +15,7 @@ namespace osgVerse
     /** Create a serializer UI item for a uniform (owned by a StateSet) */
     class SerializerBaseItem;
     SerializerBaseItem* createUniformSerializerItem(
-        osg::UniformBase* uniform, osg::StateSet* parent, int value, int unit = -1);
+        osg::Uniform* uniform, osg::StateSet* parent, int value, int unit = -1);
 
     /** Read-only data source of a number table window */
     struct NumberTableData : public osg::Referenced
