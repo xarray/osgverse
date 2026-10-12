@@ -219,7 +219,7 @@ void processFile(const std::string& prefix, const std::string& dirName,
         node->accept(rdp);
 
         osgVerse::TextureOptimizer opt(true, "optimize_tex_" + nanoid::generate(8));
-        opt.setGeneratingMipmaps(true); node->accept(opt);
+        opt.setGeneratingMipmaps(true); opt.setAutoResizingTextures(true); node->accept(opt);
 
         osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
         options->setPluginStringData("UseBASISU", "1");
@@ -341,7 +341,7 @@ int main(int argc, char** argv)
             node->accept(rdp);
 
             osgVerse::TextureOptimizer opt(true, "optimize_tex_" + nanoid::generate(8));
-            opt.setGeneratingMipmaps(true); node->accept(opt);
+            opt.setGeneratingMipmaps(true); opt.setAutoResizingTextures(true); node->accept(opt);
 
             osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
             options->setPluginStringData("UseBASISU", "1");

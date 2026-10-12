@@ -3,6 +3,7 @@ SET(LIBRARY_INCLUDE_FILES
     Utilities.h OsgbTileOptimizer.h DracoProcessor.h FileCache.h DatabasePager.h
     TileCallback.h EarthManipulator.h VisionDevice.h MaterialGraph.h
     NamedObjectFinder.h FeatureDefinition.h SolarPosition.h Export.h
+    TextureSizeAdvisor.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     LoadSceneFBX.cpp LoadSceneFBX.h LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
@@ -10,6 +11,7 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     DracoProcessor.cpp FileCache.cpp DatabasePager.cpp OsgbTileOptimizer.cpp FeatureDefinition.cpp
     TileCallback.cpp EarthManipulator.cpp VisionDevice.cpp MaterialGraph.cpp
     SafeGltfInput.cpp SafeGltfInput.h Utilities.cpp UtilitiesEx.cpp
+    TextureSizeAdvisor.cpp TextureSizeAdvisor.h
 )
 
 IF(VERSE_USE_OHOS)

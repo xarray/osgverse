@@ -290,6 +290,7 @@ TextureOptimizer::TextureOptimizer(bool inlineFile, const std::string& newTexFol
     _textureFolder = newTexFolder;
     _saveAsInlineFile = inlineFile;
     _generateMipmaps = false;
+    _autoResizeTextures = false;
     _ktxOptions = new osgDB::Options("UseBASISU=1");
 }
 
@@ -380,6 +381,16 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
     if (img->getFileName().empty()) img->setFileName(nanoid::generate(8) + ".png");
     if (img->getFileName().find("verse_ktx") != std::string::npos) return NULL;
     if ((img->s() < 4 || img->t() < 4)) return NULL;
+
+    if (_autoResizeTextures)
+    {   // Shrink the texture first when its current size cannot be seen on screen
+        TextureSizeAdvisor::Result result;
+        if (TextureSizeAdvisor::optimizeSize(*img, _sizeAdvisorOptions, &result))
+            OSG_NOTICE << "[TextureOptimizer] Auto-resized: " << img->getFileName() << " "
+                       << result.originalWidth << "x" << result.originalHeight << " -> "
+                       << result.suggestedWidth << "x" << result.suggestedHeight
+                       << " (ssim=" << result.achievedSSIM << ")" << std::endl;
+    }
 
     if (_generateMipmaps && !img->isMipmap())
     {

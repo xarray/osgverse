@@ -858,7 +858,8 @@ namespace
         int w, h, c; std::vector<float> data;
         float& at(int x, int y, int ch) { return data[(y * w + x) * c + ch]; }
         const float& at(int x, int y, int ch) const { return data[(y * w + x) * c + ch]; }
-        SsimImageF(int ww = 0, int hh = 0, int cc = 0) : w(ww), h(hh), c(cc) {}
+        SsimImageF(int ww = 0, int hh = 0, int cc = 0)
+            : w(ww), h(hh), c(cc), data((size_t)ww * (size_t)hh * (size_t)cc, 0.0f) {}
     };
 
     SsimImageF ssimConvertImage(const osg::Image& img)

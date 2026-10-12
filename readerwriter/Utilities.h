@@ -11,6 +11,7 @@
 extern void emscripten_advance();
 #endif
 #include "Export.h"
+#include "TextureSizeAdvisor.h"
 #include <functional>
 #include <queue>
 #include <mutex>
@@ -100,6 +101,16 @@ namespace osgVerse
         void setGeneratingMipmaps(bool b) { _generateMipmaps = b; }
         bool getGeneratingMipmaps() const { return _generateMipmaps; }
 
+        /** Enable automatic texture resizing: before compressing each texture the
+            TextureSizeAdvisor is asked whether its current size is really needed,
+            and the image is shrunk when the reduction cannot be seen. */
+        void setAutoResizingTextures(bool b) { _autoResizeTextures = b; }
+        bool getAutoResizingTextures() const { return _autoResizeTextures; }
+
+        /** Get the parameters used by the automatic texture resizing */
+        TextureSizeAdvisor::Options& getSizeAdvisorOptions() { return _sizeAdvisorOptions; }
+        const TextureSizeAdvisor::Options& getSizeAdvisorOptions() const { return _sizeAdvisorOptions; }
+
         virtual void apply(osg::Drawable& drawable);
         virtual void apply(osg::Geode& geode);
         virtual void apply(osg::Node& node);
@@ -112,7 +123,8 @@ namespace osgVerse
         osg::ref_ptr<osgDB::Options> _ktxOptions;
         std::vector<std::string> _savedTextures;
         std::string _textureFolder;
-        bool _saveAsInlineFile, _generateMipmaps;
+        TextureSizeAdvisor::Options _sizeAdvisorOptions;
+        bool _saveAsInlineFile, _generateMipmaps, _autoResizeTextures;
     };
 
 #ifdef __EMSCRIPTEN__
