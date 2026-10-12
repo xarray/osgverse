@@ -1,17 +1,16 @@
 SET(LIB_NAME osgVerseReaderWriter)
 SET(LIBRARY_INCLUDE_FILES
     Utilities.h OsgbTileOptimizer.h DracoProcessor.h FileCache.h DatabasePager.h
-    TileCallback.h EarthManipulator.h VisionDevice.h MaterialGraph.h
+    TextureSizeAdvisor.h TileCallback.h EarthManipulator.h VisionDevice.h MaterialGraph.h
     NamedObjectFinder.h FeatureDefinition.h SolarPosition.h Export.h
-    TextureSizeAdvisor.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    LoadSceneFBX.cpp LoadSceneFBX.h LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
-    LoadTextureKTX.cpp LoadTextureKTX.h SaveSceneGLTF.cpp SaveSceneGLTF.h MimeTypes.cpp GLEnums.cpp
+    LoadSceneFBX.cpp LoadSceneFBX.h SaveSceneFBX.cpp SaveSceneFBX.h
+    LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h SaveSceneGLTF.cpp SaveSceneGLTF.h
+    LoadTextureKTX.cpp LoadTextureKTX.h SafeGltfInput.cpp SafeGltfInput.h
     DracoProcessor.cpp FileCache.cpp DatabasePager.cpp OsgbTileOptimizer.cpp FeatureDefinition.cpp
-    TileCallback.cpp EarthManipulator.cpp VisionDevice.cpp MaterialGraph.cpp
-    SafeGltfInput.cpp SafeGltfInput.h Utilities.cpp UtilitiesEx.cpp
-    TextureSizeAdvisor.cpp TextureSizeAdvisor.h
+    TextureSizeAdvisor.cpp TileCallback.cpp EarthManipulator.cpp VisionDevice.cpp MaterialGraph.cpp
+    Utilities.cpp UtilitiesEx.cpp MimeTypes.cpp GLEnums.cpp
 )
 
 IF(VERSE_USE_OHOS)

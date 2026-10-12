@@ -36,6 +36,10 @@
 #include <avir/avir.h>
 #include <nanoid/nanoid.h>
 #include <miniz.h>
+// miniz provides zlib-compatible macro aliases (e.g. `compress` -> `mz_compress`), which would
+// collide with CompressAuxiliary::compress(); drop the conflicting macro names we don't need here
+#undef compress
+#undef uncompress
 
 #define MINIAUDIO_IMPLEMENTATION
 #include <miniaudio.h>
@@ -585,9 +589,10 @@ namespace osgVerse
 /// CompressAuxiliary ///
 struct CompressHandleData : osg::Referenced
 {
-    CompressHandleData(CompressAuxiliary::CompressorType t) : type(t) {}
+    CompressHandleData(CompressAuxiliary::CompressorType t) : type(t), decoderReady(false) {}
     std::vector<unsigned char> buffer;
     CompressAuxiliary::CompressorType type;
+    bool decoderReady;  // only true if a decoder (zip reader / inflate stream) was initialized
 
     mz_zip_archive zipArchive;
     z_stream zlibStream;
@@ -607,21 +612,35 @@ osg::Referenced* CompressAuxiliary::createHandle(CompressorType type, unsigned c
     {
         memset(&(H->zipArchive), 0, sizeof(mz_zip_archive));
         if (mz_zip_reader_init_mem(&(H->zipArchive), (void*)H->buffer.data(), H->buffer.size(), 0))
-            return H.release();
+            { H->decoderReady = true; return H.release(); }
     }
     else if (type == GZ)
     {
         memset(&(H->zlibStream), 0, sizeof(z_stream));
-        if (inflateInit2(&(H->zlibStream), 16 + MAX_WBITS) == Z_OK) return H.release();
+        if (inflateInit2(&(H->zlibStream), 16 + MAX_WBITS) == Z_OK)
+            { H->decoderReady = true; return H.release(); }
+    }
+    else if (type == ZLIB)
+    {
+        memset(&(H->zlibStream), 0, sizeof(z_stream));
+        if (inflateInit2(&(H->zlibStream), MAX_WBITS) == Z_OK)
+            { H->decoderReady = true; return H.release(); }
     }
     return NULL;
+}
+
+osg::Referenced* CompressAuxiliary::createHandle(CompressorType type)
+{
+    // A handle carrying only the compressor type, used for output/compression
+    return new CompressHandleData(type);
 }
 
 void CompressAuxiliary::destroyHandle(osg::Referenced* handle)
 {
     CompressHandleData* H = (CompressHandleData*)handle; if (!H) return;
+    if (!H->decoderReady) return;
     if (H->type == ZIP) mz_zip_reader_end(&(H->zipArchive));
-    else if (H->type == GZ) inflateEnd(&(H->zlibStream));
+    else inflateEnd(&(H->zlibStream));  // GZ / ZLIB
 }
 
 std::vector<std::string> CompressAuxiliary::listContents(osg::Referenced* handle)
@@ -650,7 +669,7 @@ std::vector<unsigned char> CompressAuxiliary::extract(osg::Referenced* handle, c
         void* p = mz_zip_reader_extract_file_to_heap(&(H->zipArchive), fileName.c_str(), &uncompSize, 0);
         if (!p) return data; data.assign((unsigned char*)p, (unsigned char*)p + uncompSize); mz_free(p);
     }
-    else if (H->type == GZ)
+    else if (H->type == GZ || H->type == ZLIB)
     {
         size_t inputOffset = 0, inputSize = H->buffer.size(), maxExpansionRatio = 512u;
         size_t ratioLimit = 256u * 1024u * 1024u;  // max-output-bytes
@@ -686,6 +705,29 @@ std::vector<unsigned char> CompressAuxiliary::extract(osg::Referenced* handle, c
         }
     }
     return data;
+}
+
+std::vector<unsigned char> CompressAuxiliary::compress(osg::Referenced* handle,
+                                                       const std::vector<unsigned char>& raw)
+{
+    std::vector<unsigned char> result;
+    CompressHandleData* H = (CompressHandleData*)handle; if (!H || raw.empty()) return result;
+    if (H->type == ZLIB)
+    {
+        mz_ulong bound = mz_compressBound((mz_ulong)raw.size()), length = bound;
+        result.resize(bound);
+        if (mz_compress2(result.data(), &length, raw.data(), (mz_ulong)raw.size(),
+                         MZ_DEFAULT_COMPRESSION) != MZ_OK)
+        {
+            result.clear();
+            OSG_WARN << "[CompressAuxiliary] Failed to compress " << raw.size() << " bytes\n";
+        }
+        else
+            result.resize(length);
+    }
+    else
+        OSG_NOTICE << "[CompressAuxiliary] Compression is unsupported for this type\n";
+    return result;
 }
 
 /// AudioPlayer ///

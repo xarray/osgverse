@@ -294,11 +294,15 @@ namespace osgVerse
     /** Compression helper functions and algorithms */
     struct OSGVERSE_RW_EXPORT CompressAuxiliary
     {
-        enum CompressorType { ZIP, GZ };
+        // ZIP: zip archive; GZ: gzip stream (16 + MAX_WBITS); ZLIB: zlib/DEFLATE stream (RFC1950)
+        enum CompressorType { ZIP, GZ, ZLIB };
 
         /** Create the archive handle */
         static osg::Referenced* createHandle(CompressorType type, std::istream& fin);
         static osg::Referenced* createHandle(CompressorType type, unsigned char* buf, size_t size);
+
+        /** Create a handle for compression only (no input data needed) */
+        static osg::Referenced* createHandle(CompressorType type);
 
         /** Destroy the archive handle */
         static void destroyHandle(osg::Referenced* handle);
@@ -308,6 +312,11 @@ namespace osgVerse
 
         /** Extract specified file data from the archive */
         static std::vector<unsigned char> extract(osg::Referenced* handle, const std::string& fileName);
+
+        /** Compress a memory buffer using the given handle's backend;
+            returns an empty buffer (and prints a notice) if the type does not support compression */
+        static std::vector<unsigned char> compress(osg::Referenced* handle,
+                                                   const std::vector<unsigned char>& raw);
     };
 
     /** Client wrapper working with osgVerse Python server (multimodel_server.py) */
