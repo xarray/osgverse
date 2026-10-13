@@ -1,19 +1,13 @@
 SET(LIB_NAME osgVerseWrappers)
-IF(USE_WASM_OPTIONS OR ANDROID OR IOS OR VERSE_USE_OHOS)
-    SET(GENERIC_OSG_FILES)  # ignore generic rewrappers
-ELSE()
-    FILE(GLOB GENERIC_OSG_FILES generic_osg/*.cpp)
-ENDIF()
-
 SET(LIBRARY_INCLUDE_FILES
     Export.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    DracoWrapper.cpp RewrapperLoader.cpp
+    DracoWrapper.cpp
 )
 
 IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
-    SET(LIBRARY_FILES ${LIBRARY_FILES} ${GENERIC_OSG_FILES}
+    SET(LIBRARY_FILES ${LIBRARY_FILES}
         WrapperMethods.cpp Geometry_FixedWrapper.cpp)
 ENDIF()
 

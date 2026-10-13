@@ -67,10 +67,6 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_TEST(osgVerse_Test_Sky_Box sky_box_test.cpp)
     NEW_TEST(osgVerse_Test_Swig_Interface swig_interface_test.cpp)
     NEW_TEST(osgVerse_Test_Python_Server python_server_test.cpp)
-
-    IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 3)
-        NEW_TEST(osgVerse_Test_Reserializing reserializing_test.cpp)
-    ENDIF()
 ENDIF(NOT VERSE_USE_EXTERNAL_GLES)
 
 NEW_EXAMPLE(osgVerse_Test_3DGS gaussian_splatting_test.cpp)  # 3D gaussian splatting load and render example
