@@ -1,10 +1,10 @@
 #include PREPENDED_HEADER
 #include <osgDB/ReadFile>
 #include <osgGA/StateSetManipulator>
-#include <osgGA/TrackballManipulator>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <picojson.h>
+#include <readerwriter/OrbitObjectManipulator.h>
 #include "defines.h"
 GlobalData g_data;
 
@@ -30,10 +30,10 @@ protected:
     }
 };
 
-class SceneManipulator : public osgGA::TrackballManipulator
+class SceneManipulator : public osgVerse::OrbitObjectManipulator
 {
 public:
-    SceneManipulator() : osgGA::TrackballManipulator() {}
+    SceneManipulator() : osgVerse::OrbitObjectManipulator() {}
     virtual bool performMovement()
     {
         if (_ga_t0.get() == NULL || _ga_t1.get() == NULL) return false;
@@ -207,8 +207,18 @@ EditorContentHandler::EditorContentHandler()
         });
     _hierarchyData->setItemDoubleClickAction(
         [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
-            // TODO: focus in 3D view?
-            std::cout << "ITEM DOUBLE CLICKED " << item->name << std::endl;
+            // Double click focuses the camera on the item's object: the view direction is unchanged,
+            // the object just becomes the new orbit center (so navigating orbits around it)
+            if (item == NULL || !g_data.view.valid()) return;
+            osg::Object* obj = osgVerse::SceneDataProxy::get<osg::Object*>(item->userData.get());
+            osg::Node* node = dynamic_cast<osg::Node*>(obj);
+            
+            osgVerse::OrbitObjectManipulator* manip = dynamic_cast<osgVerse::OrbitObjectManipulator*>(
+                g_data.view->getCameraManipulator());
+            if (node == NULL || manip == NULL) return;
+
+            osg::Camera* cam = g_data.pipeline.valid() ? g_data.pipeline->getForwardCamera() : NULL;
+            manip->focusOnObject(node, cam);
         });
 
     _hierarchy = new osgVerse::Window(TR0("Hierarchy") + "##editor");

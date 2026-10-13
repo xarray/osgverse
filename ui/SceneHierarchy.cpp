@@ -3,13 +3,138 @@
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osg/PagedLOD>
+#include <osg/Geometry>
+#include <osg/Array>
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
+#include <modeling/Utilities.h>
 #include <nanoid/nanoid.h>
 #include "SceneHierarchy.h"
 #include <iostream>
 #include <stack>
 using namespace osgVerse;
+
+// Build a solid box centered at the origin (4 vertices per face, so each face gets a flat normal)
+static osg::Geometry* createBoxGeometry(float size)
+{
+    const float h = size * 0.5f;
+    const osg::Vec3 normals[6] =
+    {
+        osg::Vec3(0.0f, 0.0f, 1.0f), osg::Vec3(0.0f, 0.0f, -1.0f),
+        osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec3(-1.0f, 0.0f, 0.0f),
+        osg::Vec3(0.0f, 1.0f, 0.0f), osg::Vec3(0.0f, -1.0f, 0.0f)
+    };
+    const osg::Vec3 corners[6][4] =
+    {
+        { osg::Vec3(-h, -h,  h), osg::Vec3( h, -h,  h), osg::Vec3( h,  h,  h), osg::Vec3(-h,  h,  h) },  // +Z
+        { osg::Vec3(-h, -h, -h), osg::Vec3(-h,  h, -h), osg::Vec3( h,  h, -h), osg::Vec3( h, -h, -h) },  // -Z
+        { osg::Vec3( h, -h, -h), osg::Vec3( h,  h, -h), osg::Vec3( h,  h,  h), osg::Vec3( h, -h,  h) },  // +X
+        { osg::Vec3(-h, -h, -h), osg::Vec3(-h, -h,  h), osg::Vec3(-h,  h,  h), osg::Vec3(-h,  h, -h) },  // -X
+        { osg::Vec3(-h,  h, -h), osg::Vec3(-h,  h,  h), osg::Vec3( h,  h,  h), osg::Vec3( h,  h, -h) },  // +Y
+        { osg::Vec3(-h, -h, -h), osg::Vec3( h, -h, -h), osg::Vec3( h, -h,  h), osg::Vec3(-h, -h,  h) }   // -Y
+    };
+    const osg::Vec2 texcoords[4] =
+    {
+        osg::Vec2(0.0f, 0.0f), osg::Vec2(1.0f, 0.0f),
+        osg::Vec2(1.0f, 1.0f), osg::Vec2(0.0f, 1.0f)
+    };
+
+    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array;
+    osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
+    for (int f = 0; f < 6; ++f)
+    {
+        unsigned int base = (unsigned int)va->size();
+        for (int i = 0; i < 4; ++i)
+        {
+            va->push_back(corners[f][i]); na->push_back(normals[f]); ta->push_back(texcoords[i]);
+        }
+        de->push_back(base); de->push_back(base + 1); de->push_back(base + 2);
+        de->push_back(base); de->push_back(base + 2); de->push_back(base + 3);
+    }
+    return osgVerse::createGeometry(va.get(), na.get(), ta.get(), de.get());
+}
+
+// Build a quad on the XY plane, centered at the origin
+static osg::Geometry* createPlaneGeometry(float size)
+{
+    const float h = size * 0.5f;
+    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+    va->push_back(osg::Vec3(-h, -h, 0.0f)); va->push_back(osg::Vec3(h, -h, 0.0f));
+    va->push_back(osg::Vec3(h, h, 0.0f)); va->push_back(osg::Vec3(-h, h, 0.0f));
+    osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array;
+    ta->push_back(osg::Vec2(0.0f, 0.0f)); ta->push_back(osg::Vec2(1.0f, 0.0f));
+    ta->push_back(osg::Vec2(1.0f, 1.0f)); ta->push_back(osg::Vec2(0.0f, 1.0f));
+    osg::ref_ptr<osg::DrawArrays> da = new osg::DrawArrays(GL_QUADS, 0, 4);
+    return osgVerse::createGeometry(va.get(), NULL, ta.get(), da.get());
+}
+
+// Build a capsule (cylindrical body + two hemisphere caps) aligned with the Z axis, centered at
+// the origin. There is no helper for this shape in modeling/Utilities.h, so the profile is revolved
+// here: the radius/z/normal of every ring is listed and then turned around the Z axis.
+static osg::Geometry* createCapsuleGeometry(float radius, float height, int segments)
+{
+    const float halfPi = 1.5707963268f, twoPi = 6.2831853072f;
+    const float half = height * 0.5f; const int rings = 8;
+    std::vector<osg::Vec4> profile;  // (radius, z, normalRadius, normalZ) for each ring
+    for (int i = 0; i <= rings; ++i)  // bottom hemisphere: bottom pole -> equator
+    {
+        float a = halfPi * (float)i / (float)rings;
+        profile.push_back(osg::Vec4(radius * sinf(a), -half - radius * cosf(a), sinf(a), -cosf(a)));
+    }
+    for (int i = 0; i <= rings; ++i)  // top hemisphere: equator -> top pole
+    {
+        float a = halfPi * (1.0f - (float)i / (float)rings);
+        profile.push_back(osg::Vec4(radius * sinf(a), half + radius * cosf(a), sinf(a), cosf(a)));
+    }
+
+    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array;
+    const int P = (int)profile.size();
+    for (int j = 0; j < P; ++j)
+    {
+        const osg::Vec4& p = profile[j];
+        for (int i = 0; i <= segments; ++i)
+        {
+            float theta = twoPi * (float)i / (float)segments;
+            float ct = cosf(theta), st = sinf(theta);
+            va->push_back(osg::Vec3(p[0] * ct, p[0] * st, p[1]));
+            na->push_back(osg::Vec3(p[2] * ct, p[2] * st, p[3]));
+            ta->push_back(osg::Vec2((float)i / (float)segments, (float)j / (float)(P - 1)));
+        }
+    }
+
+    osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
+    for (int j = 0; j < P - 1; ++j)
+    {
+        for (int i = 0; i < segments; ++i)
+        {
+            unsigned int a = j * (segments + 1) + i, b = a + 1,
+                         c = (j + 1) * (segments + 1) + i, d = c + 1;
+            de->push_back(a); de->push_back(b); de->push_back(c);
+            de->push_back(b); de->push_back(d); de->push_back(c);
+        }
+    }
+    return osgVerse::createGeometry(va.get(), na.get(), ta.get(), de.get());
+}
+
+// Create a primitive geometry for the "Add Child > Geometry" menu. Shapes that already have a
+// builder in modeling/Utilities.h are created directly; Box/Plane/Capsule are built above.
+static osg::Geometry* createPrimitiveGeometry(const std::string& type)
+{
+    const int segments = 32;
+    if (type == "Box") return createBoxGeometry(2.0f);
+    if (type == "Plane") return createPlaneGeometry(2.0f);
+    if (type == "Capsule") return createCapsuleGeometry(1.0f, 2.0f, segments);
+    if (type == "Sphere") return osgVerse::createEllipsoid(osg::Vec3(), 1.0f, 1.0f, 1.0f, segments);
+    if (type == "Cylinder")
+        return osgVerse::createPrism(osg::Vec3(0.0f, 0.0f, -1.0f), 1.0f, 1.0f, 2.0f, segments, true);
+    if (type == "Cone")
+        return osgVerse::createPyramid(osg::Vec3(0.0f, 0.0f, -1.0f), 1.0f, 2.0f, segments, true);
+    return NULL;
+}
 
 class HierarchyCreatingVisitor : public osg::NodeVisitor
 {
@@ -148,22 +273,22 @@ SceneHierarchy::SceneHierarchy()
             {
                 newGeomItem.subItems.push_back(createPopupMenu("Box",
                     [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-                { OSG_NOTICE << "TODO: add Box" << std::endl; }));
+                { if (!addGeometryOperation(_selectedItem.get(), "Box")) OSG_WARN << "[SceneHierarchy] Failed adding Box" << std::endl; }));
                 newGeomItem.subItems.push_back(createPopupMenu("Sphere",
                     [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-                { OSG_NOTICE << "TODO: add Sphere" << std::endl; }));
+                { if (!addGeometryOperation(_selectedItem.get(), "Sphere")) OSG_WARN << "[SceneHierarchy] Failed adding Sphere" << std::endl; }));
                 newGeomItem.subItems.push_back(createPopupMenu("Cylinder",
                     [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-                { OSG_NOTICE << "TODO: add Cylinder" << std::endl; }));
+                { if (!addGeometryOperation(_selectedItem.get(), "Cylinder")) OSG_WARN << "[SceneHierarchy] Failed adding Cylinder" << std::endl; }));
                 newGeomItem.subItems.push_back(createPopupMenu("Cone",
                     [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-                { OSG_NOTICE << "TODO: add Cone" << std::endl; }));
+                { if (!addGeometryOperation(_selectedItem.get(), "Cone")) OSG_WARN << "[SceneHierarchy] Failed adding Cone" << std::endl; }));
                 newGeomItem.subItems.push_back(createPopupMenu("Capsule",
                     [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-                { OSG_NOTICE << "TODO: add Capsule" << std::endl; }));
+                { if (!addGeometryOperation(_selectedItem.get(), "Capsule")) OSG_WARN << "[SceneHierarchy] Failed adding Capsule" << std::endl; }));
                 newGeomItem.subItems.push_back(createPopupMenu("Plane",
                     [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-                { OSG_NOTICE << "TODO: add Plane" << std::endl; }));
+                { if (!addGeometryOperation(_selectedItem.get(), "Plane")) OSG_WARN << "[SceneHierarchy] Failed adding Plane" << std::endl; }));
             }
             newItem.subItems.push_back(newGeomItem);
 
@@ -173,7 +298,10 @@ SceneHierarchy::SceneHierarchy()
 
             newItem.subItems.push_back(createPopupMenu("Camera",
                 [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-            { OSG_NOTICE << "TODO: add Camera" << std::endl; }));
+            {
+                if (!addOperation(_selectedItem.get(), "osg::Camera"))
+                    OSG_WARN << "[SceneHierarchy] Failed adding camera: " << _selectedItem->name << std::endl;
+            }));
         }
         _popupMenus.push_back(newItem);
 
@@ -185,18 +313,27 @@ SceneHierarchy::SceneHierarchy()
             [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
         {
             if (!removeOperation(_selectedItem.get()))
-                OSG_WARN << "[SceneHierarchy] Failed removing child: " << _selectedItem->name << std::endl;
+                OSG_WARN << "[SceneHierarchy] Failed removing child: "
+                         << (_selectedItem.valid() ? _selectedItem->name : std::string("?")) << std::endl;
         }));
 
         _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
 
         _popupMenus.push_back(createPopupMenu("Move Up",
             [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-        { OSG_NOTICE << "TODO: move-up" << std::endl; }));
+        {
+            if (!moveOperation(_selectedItem.get(), true))
+                OSG_WARN << "[SceneHierarchy] Failed moving up: "
+                         << (_selectedItem.valid() ? _selectedItem->name : std::string("?")) << std::endl;
+        }));
 
         _popupMenus.push_back(createPopupMenu("Move Down",
             [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-        { OSG_NOTICE << "TODO: move-down" << std::endl; }));
+        {
+            if (!moveOperation(_selectedItem.get(), false))
+                OSG_WARN << "[SceneHierarchy] Failed moving down: "
+                         << (_selectedItem.valid() ? _selectedItem->name : std::string("?")) << std::endl;
+        }));
 
         _popupMenus.push_back(createPopupMenu("Cut",
             [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
@@ -438,48 +575,137 @@ void SceneHierarchy::updateStateInformation(TreeView::TreeData* item, osg::Objec
     }
 }
 
-bool SceneHierarchy::addOperation(TreeView::TreeData* item, const std::string& childType, bool isGeom)
+bool SceneHierarchy::addOperation(TreeView::TreeData* item, const std::string& childType)
 {
-    bool finished = false;
-    if (item && item->userData.valid())
-    {
-        osg::ref_ptr<osg::Object> parent = SceneDataProxy::get<osg::Object*>(item->userData.get());
-        osg::ref_ptr<osg::Object> child = _entries["osg"]->create(childType);
-        if (isGeom)
-        {
-            osg::ref_ptr<osg::Object> geode = dynamic_cast<osg::Geode*>(parent.get());
-            if (!geode)
-            {
-                geode = _entries["osg"]->create("osg::Geode");
-                if (_entries["osg"]->callMethod(parent.get(), "addChild", geode.get()))
-                    finished = false;
-            }
-            finished = _entries["osg"]->callMethod(geode.get(), "addDrawable", child.get());
-        }
-        else if (parent.valid() && child.valid())
-            finished = _entries["osg"]->callMethod(parent.get(), "addChild", child.get());
-        if (finished) addItem(item, child.get(), true);
-    }
+    if (!item || !item->userData.valid()) return false;
+    osg::ref_ptr<osg::Object> parent = SceneDataProxy::get<osg::Object*>(item->userData.get());
+    osg::ref_ptr<osg::Object> child = _entries["osg"]->create(childType);
+    if (!parent.valid() || !child.valid()) return false;
+
+    bool finished = _entries["osg"]->callMethod(parent.get(), "addChild", child.get());
+    if (finished) addItem(item, child.get(), true);
     return finished;
 }
 
 bool SceneHierarchy::removeOperation(TreeView::TreeData* subItem)
 {
-    osg::ref_ptr<osg::Object> child = SceneDataProxy::get<osg::Object*>(subItem ? subItem->userData.get() : NULL);
-    if (child.valid())
+    osg::ref_ptr<osg::Object> child = SceneDataProxy::get<osg::Object*>(
+        subItem ? subItem->userData.get() : NULL);
+    if (!child.valid()) return false;
+
+    bool selected = (subItem == _selectedItem.get()), finishedAny = false;
+    std::vector<TreeView::TreeData*> parents = _treeView->findParents(subItem);
+    for (size_t i = 0; i < parents.size(); ++i)
     {
-        std::vector<TreeView::TreeData*> parents = _treeView->findParents(subItem);
-        for (size_t i = 0; i < parents.size(); ++i)
-        {
-            bool finished = false;
-            osg::ref_ptr<osg::Object> parent = SceneDataProxy::get<osg::Object*>(parents[i]->userData.get());
-            if (dynamic_cast<osg::Geode*>(parent.get()) != NULL)
-                finished = _entries["osg"]->callMethod(parent.get(), "removeDrawable", child.get());
-            else
-                finished = _entries["osg"]->callMethod(parent.get(), "removeChild", child.get());
-            if (finished) removeItem(parents[i], child.get(), true);
-        }
-        return !parents.empty();
+        osg::ref_ptr<osg::Object> parent = SceneDataProxy::get<osg::Object*>(parents[i]->userData.get());
+        if (!parent.valid()) continue;  // invalid parent: skip instead of passing NULL to the serializer
+
+        bool finished = false;
+        if (dynamic_cast<osg::Geode*>(parent.get()) != NULL)
+            finished = _entries["osg"]->callMethod(parent.get(), "removeDrawable", child.get());
+        else
+            finished = _entries["osg"]->callMethod(parent.get(), "removeChild", child.get());
+        if (finished && removeItem(parents[i], child.get(), true)) finishedAny = true;
     }
-    return false;
+
+    // The removed object may be destroyed right after this call (the scene graph was its last
+    // owner), so the selection and any panel depending on it must be cleared immediately -
+    // otherwise the properties panel would dereference a dangling object next frame.
+    if (finishedAny)
+    {
+        osg::Object* selObj = _selectedItem.valid() ? getObject(_selectedItem.get()) : NULL;
+        if (selected || selObj == NULL) clearSelection(true);
+    }
+    return finishedAny;
+}
+
+osg::Object* SceneHierarchy::getObject(TreeView::TreeData* item) const
+{
+    return item ? SceneDataProxy::get<osg::Object*>(item->userData.get()) : NULL;
+}
+
+TreeView::TreeData* SceneHierarchy::getParentItem(TreeView::TreeData* item) const
+{
+    if (!item || !_treeView.valid()) return NULL;
+    std::vector<TreeView::TreeData*> parents = _treeView->findParents(item);
+    return parents.empty() ? NULL : parents[0];
+}
+
+bool SceneHierarchy::moveOperation(TreeView::TreeData* item, bool moveUp)
+{
+    TreeView::TreeData* parentItem = getParentItem(item);
+    if (!parentItem) return false;
+
+    int index = -1, count = (int)parentItem->children.size();
+    for (int i = 0; i < count; ++i)
+        if (parentItem->children[i].get() == item) { index = i; break; }
+    int newIndex = index + (moveUp ? -1 : 1);
+    if (index < 0 || newIndex < 0 || newIndex >= count) return false;
+
+    osg::ref_ptr<osg::Object> parentObj = getObject(parentItem);
+    if (!parentObj.valid()) return false;
+
+    // Gather the child objects in their current order; the strong references keep them alive while
+    // they are temporarily detached from the scene graph during the rebuild below.
+    std::vector<osg::ref_ptr<osg::Object>> objects;
+    for (int i = 0; i < count; ++i)
+    {
+        osg::ref_ptr<osg::Object> obj = getObject(parentItem->children[i].get());
+        if (!obj.valid()) return false;
+        objects.push_back(obj);
+    }
+    std::swap(objects[index], objects[newIndex]);
+
+    // Reorder through the serializer method layer only. The OSG wrappers expose no "insertChild",
+    // and setChild/setDrawable *replace* the node at the given index (they do not move it), so the
+    // only safe reorder is to remove every child and add them back in the requested order, which
+    // also keeps every node's parent list consistent.
+    bool isGeode = (dynamic_cast<osg::Geode*>(parentObj.get()) != NULL);
+    const std::string adder = isGeode ? "addDrawable" : "addChild";
+    const std::string remover = isGeode ? "removeDrawable" : "removeChild";
+    for (int i = 0; i < count; ++i)
+        _entries["osg"]->callMethod(parentObj.get(), remover, objects[i].get());
+
+    bool ok = true;
+    for (int i = 0; i < count; ++i)
+        ok = _entries["osg"]->callMethod(parentObj.get(), adder, objects[i].get()) && ok;
+
+    if (ok) std::swap(parentItem->children[index], parentItem->children[newIndex]);
+    return ok;
+}
+
+bool SceneHierarchy::addGeometryOperation(TreeView::TreeData* item, const std::string& primitive)
+{
+    osg::ref_ptr<osg::Object> target = item ? getObject(item) : NULL; if (!target.valid()) return false;
+    osg::ref_ptr<osg::Geometry> geometry = createPrimitiveGeometry(primitive);
+    if (!geometry.valid()) return false;
+
+    // Find the Geode that will hold the new geometry; create one (under a group) if needed
+    osg::ref_ptr<osg::Object> geodeOwner; osg::ref_ptr<osg::Geode> geode;
+    if (dynamic_cast<osg::Geode*>(target.get()) != NULL)
+        geode = static_cast<osg::Geode*>(target.get());
+    else if (dynamic_cast<osg::Group*>(target.get()) != NULL)
+        geodeOwner = target;
+    else  // target is a drawable: attach to its parent's Geode/Group
+    {
+        osg::Object* parentObj = getObject(getParentItem(item));
+        if (dynamic_cast<osg::Geode*>(parentObj) != NULL)
+            geode = static_cast<osg::Geode*>(parentObj);
+        else if (parentObj && dynamic_cast<osg::Group*>(parentObj) != NULL)
+            geodeOwner = parentObj;
+    }
+
+    if (!geode.valid())
+    {
+        if (!geodeOwner.valid()) return false;
+        osg::ref_ptr<osg::Object> newGeode = _entries["osg"]->create("osg::Geode");
+        geode = dynamic_cast<osg::Geode*>(newGeode.get());
+        if (!geode || !_entries["osg"]->callMethod(geodeOwner.get(), "addChild", geode.get()))
+            return false;
+        addItem(findItem(geodeOwner.get()), geode.get(), true);
+    }
+
+    if (!_entries["osg"]->callMethod(geode.get(), "addDrawable", geometry.get())) return false;
+    addItem(findItem(geode.get()), geometry.get(), false);
+    return true;
 }

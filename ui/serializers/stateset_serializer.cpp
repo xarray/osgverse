@@ -150,9 +150,10 @@ public:
                 for (osg::StateSet::UniformList::iterator itr = uniforms.begin();
                      itr != uniforms.end(); ++itr)
                 {
-                    osg::Uniform* uniform = itr->second.first.get();
+                    osg::Uniform* uniform = static_cast<osg::Uniform*>(itr->second.first.get());
                     if (uniform == NULL) continue;
-                    _serializerUIs.push_back(createUniformSerializerItem(uniform, ss, itr->second.second));
+                    _serializerUIs.push_back(
+                        createUniformSerializerItem(uniform, ss, itr->second.second));
                 }
                 _sectionStart[2] = numAfterTextureAttributes;
                 _sectionCount[2] = _serializerUIs.size() - numAfterTextureAttributes;

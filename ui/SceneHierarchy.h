@@ -57,6 +57,12 @@ namespace osgVerse
         /** Clear the current selection (also runs the click action with a NULL item) */
         void clearSelection(bool notify = true);
 
+        /** Move an item up/down among its siblings, reordering the scene graph the same way */
+        bool moveOperation(TreeView::TreeData* item, bool moveUp);
+
+        /** Add a primitive geometry (Box/Sphere/Cylinder/Cone/Capsule/Plane) under an item */
+        bool addGeometryOperation(TreeView::TreeData* item, const std::string& primitive);
+
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         void showPopupMenu(osgVerse::TreeView::TreeData* item, osgVerse::ImGuiManager* mgr,
                            osgVerse::ImGuiContentHandler* content);
@@ -67,7 +73,10 @@ namespace osgVerse
         void updateStateInformation(TreeView::TreeData* item, osg::Object* obj, unsigned int parentMask);
         void removeUnusedItem(TreeView::TreeData* parent, bool recursively);
 
-        bool addOperation(TreeView::TreeData* item, const std::string& childType, bool isGeom = false);
+        osg::Object* getObject(TreeView::TreeData* item) const;
+        TreeView::TreeData* getParentItem(TreeView::TreeData* item) const;
+
+        bool addOperation(TreeView::TreeData* item, const std::string& childType);
         bool removeOperation(TreeView::TreeData* child);
 
         osg::ref_ptr<TreeView> _treeView;
