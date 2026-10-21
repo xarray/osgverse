@@ -51,6 +51,7 @@ namespace osgVerse
         "MSFT_texture_dds",
         "KHR_materials_specular",
         "KHR_materials_unlit",
+        "KHR_techniques_webgl",
         "KHR_gaussian_splatting",
         "KHR_gaussian_splatting_compression_spz_2",
         "VRM"
@@ -274,6 +275,33 @@ namespace osgVerse
         return tinygltf::GetFileSizeInBytes(filesize_out, err, filepath, userData);
     }
 
+    static int hexCharToInt(char c)
+    {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    }
+
+    static bool URIDecodeEx(const std::string& in_uri, std::string* out_uri, void* userData)
+    {
+        // The default tinygltf::URIDecode converts '+' to space as per form-urlencoding,
+        // which corrupts filenames containing literal '+', such as "Tile_+004_+005.bin"
+        // commonly found in oblique photogrammetry data. Only decode %XX sequences here.
+        out_uri->clear();
+        for (size_t i = 0; i < in_uri.size(); ++i)
+        {
+            char c = in_uri[i];
+            if (c == '%' && i + 2 < in_uri.size())
+            {
+                int h1 = hexCharToInt(in_uri[i + 1]), h2 = hexCharToInt(in_uri[i + 2]);
+                if (h1 >= 0 && h2 >= 0) { out_uri->push_back((char)((h1 << 4) | h2)); i += 2; continue; }
+            }
+            out_uri->push_back(c);
+        }
+        return true;
+    }
+
     static osg::Vec3d ReadRtcCenterFeatureTable(const std::vector<char>& data, size_t offset, size_t size)
     {
         std::string json; json.assign(data.begin() + offset, data.begin() + size + offset);
@@ -429,6 +457,8 @@ namespace osgVerse
         loader.SetImageLoader(&LoadImageDataEx, this);
         loader.SetFsCallbacks(fs, &err);
         loader.SetMaxExternalFileSize(MAX_REMOTE_GLTF_RESOURCE_BYTES);
+        tinygltf::URICallbacks uriCb = { nullptr, &osgVerse::URIDecodeEx, nullptr };
+        loader.SetURICallbacks(uriCb);
         if (!err.empty()) OSG_WARN << "[LoaderGLTF] SetFsCallbacks: " << err << std::endl;
 
         if (isBinary)
@@ -1211,8 +1241,51 @@ namespace osgVerse
         int emissiveID = material.emissiveTexture.index;
         int occlusionID = material.occlusionTexture.index;
 
+        // The archived KHR_techniques_webgl extension (still widely used by old 3D-tiles
+        // generators) binds textures through technique uniforms instead of PBR fields
+        int techTexID = -1;
+        tinygltf::ExtensionMap::const_iterator mExtIt = material.extensions.find("KHR_techniques_webgl");
+        tinygltf::ExtensionMap::const_iterator gExtIt = _modelDef.extensions.find("KHR_techniques_webgl");
+        if (mExtIt != material.extensions.end() && gExtIt != _modelDef.extensions.end())
+        {
+            const tinygltf::Value& mExt = mExtIt->second, gExt = gExtIt->second;
+            if (mExt.IsObject() && mExt.Has("technique") && mExt.Has("values")
+                && gExt.IsObject() && gExt.Has("techniques"))
+            {
+                const tinygltf::Value& techniques = gExt.Get("techniques");
+                int techIndex = mExt.Get("technique").GetNumberAsInt();
+                if (techIndex >= 0 && techIndex < (int)techniques.ArrayLen())
+                {
+                    const tinygltf::Value& uniforms = techniques.Get((size_t)techIndex).Get("uniforms");
+                    const tinygltf::Value& values = mExt.Get("values");
+                    std::vector<std::string> keys = uniforms.Keys();
+                    for (size_t i = 0; i < keys.size(); ++i)
+                    {
+                        const tinygltf::Value& uni = uniforms.Get(keys[i]);
+                        if (!uni.IsObject() || !uni.Has("type") || !values.Has(keys[i])) continue;
+                        int uniType = uni.Get("type").GetNumberAsInt();
+                        // 35678/35679/35680 = GL_SAMPLER_2D/3D/CUBE
+                        if (uniType < 35678 || uniType > 35680) continue;
+
+                        const tinygltf::Value& v = values.Get(keys[i]);
+                        int texIndex = -1;
+                        if (v.IsObject())
+                        {
+                            // glTF-style texture info: {"index": 0, "texCoord": 0}
+                            if (v.Has("index")) texIndex = v.Get("index").GetNumberAsInt();
+                        }
+                        else if (v.IsInt() || v.IsReal()) texIndex = v.GetNumberAsInt();
+                        if (texIndex >= 0 && texIndex < (int)_modelDef.textures.size() && techTexID < 0)
+                            techTexID = texIndex;  // use the first sampler as diffuse map
+                    }
+                }
+            }
+        }
+
         if (baseID >= 0 && baseID < _modelDef.textures.size())
             ss->setTextureAttributeAndModes(0, createTexture(uniformNames[0], _modelDef.textures[baseID]));
+        else if (techTexID >= 0)
+            ss->setTextureAttributeAndModes(0, createTexture(uniformNames[0], _modelDef.textures[techTexID]));
         else
         {
             osg::Vec4 baseColor(linearToSRGB(material.pbrMetallicRoughness.baseColorFactor[0]),
