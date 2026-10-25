@@ -11,7 +11,7 @@ VERSE_FS_IN vec3 vertexInWorld, normalInWorld;
 VERSE_FS_IN vec4 texCoord;
 VERSE_FS_IN float isSkirt;
 
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
 layout(location = 0) VERSE_FS_OUT vec4 fragColor;
 layout(location = 1) VERSE_FS_OUT vec4 fragOrigin;
 #endif
@@ -37,7 +37,7 @@ void main()
     /*float clipD0 = dot(worldPos, clipPlane0), clipD1 = dot(worldPos, clipPlane1), clipD2 = dot(worldPos, clipPlane2);
     if (clipD0 > 0.0 && clipD1 > 0.0 && clipD2 > 0.0)
     {
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
         fragColor = vec4(0.0);
         fragOrigin = vec4(0.0, 0.0, 1.0, 1.0);
 #else
@@ -90,7 +90,7 @@ void main()
     //vec4 finalColor = vec4(hdr(compositeColor), groundColor.a);
     vec4 finalColor = vec4(mix(hdr(compositeColor), originalGroundColor, cTheta), groundColor.a);
 
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
     fragColor/*Atmospheric Color*/ = finalColor;
     fragOrigin/*Mask Color*/ = vec4(1.0 - maskValue);  // output: land => 0, ocean => 1
 #else

@@ -392,6 +392,17 @@ if [ "$SkipOsgBuild" = 0 ]; then
     PatchFileSafely 's/#ifndef GL_EXT_texture_compression_s3tc/#if !defined(GL_EXT_texture_compression_s3tc) || !defined(GL_EXT_texture_compression_s3tc_srgb)/g' "$OpenSceneGraphRoot/include/osg/Texture"
     PatchFileSafely 's#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp"
     PatchFileSafely 's#case(GL_HALF_FLOAT):#case GL_HALF_FLOAT: case 0x8D61:#g' "$OpenSceneGraphRoot/src/osg/Image.cpp"
+    # Fix a static destruction order problem: an osg::GLExtensions object can outlive the static
+    # per-context buffers it resets in its destructor. When the last reference is released by a
+    # static destructor of another translation unit (the VertexArrayStates kept in ContextData),
+    # the buffers may already be destroyed, and ~GLExtensions() then writes into freed memory.
+    # This corrupts the heap at process exit: the crash surfaces in _dl_fini afterwards, e.g. a
+    # SIGSEGV in the Moore Threads driver's teardown when the bloom / eye-adaptation stages are
+    # enabled. Leaking a few kilobytes once removes the dependency on the destruction order.
+    PatchFileSafely 's#static osg::buffered_object<ExtensionSet> s_glExtensionSetList;#static osg::buffered_object<ExtensionSet>\& s_glExtensionSetList = *new osg::buffered_object<ExtensionSet>;#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
+    PatchFileSafely 's#static osg::buffered_object<std::string> s_glRendererList;#static osg::buffered_object<std::string>\& s_glRendererList = *new osg::buffered_object<std::string>;#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
+    PatchFileSafely 's#static osg::buffered_value<int> s_glInitializedList;#static osg::buffered_value<int>\& s_glInitializedList = *new osg::buffered_value<int>;#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
+    PatchFileSafely 's#static BufferedExtensions s_extensions;#static BufferedExtensions\& s_extensions = *new BufferedExtensions;#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
     if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
         PatchFileSafely 's#isTexture2DArraySupported = validContext#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
     fi

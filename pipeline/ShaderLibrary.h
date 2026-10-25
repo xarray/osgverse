@@ -45,6 +45,8 @@ namespace osgVerse
             - osg_Vertex/osg_Color/osg_MultiTexCoord0/osg_MultiTexCoord1/osg_Normal: attributes in vertex shader
             - VERSE_GLES2: for GLES2 shaders, set to 1
             - VERSE_GLES3: for GLES3 and GLCore shaders, set to 1
+            - VERSE_FS_MRT: for GLCompatible shaders compiled with GLSL 330+, set to 1; enables the
+              explicit `layout(location = N) out` fragment outputs (used together with VERSE_GLES3)
             - VERSE_MATRIX_MVP: model-view-projection matrix in vertex shader
             - VERSE_MATRIX_MV: model-view matrix in vertex shader
             - VERSE_MATRIX_P: projection matrix in vertex shader

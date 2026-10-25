@@ -4,7 +4,7 @@ VERSE_FS_IN vec4 texCoord0, texCoord1, color;
 VERSE_FS_IN vec3 eyeNormal, eyeTangent, eyeBinormal;
 VERSE_SRCIPT_DEF
 
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
 layout(location = 0) VERSE_FS_OUT vec4 fragData0;
 layout(location = 1) VERSE_FS_OUT vec4 fragData1;
 layout(location = 2) VERSE_FS_OUT vec4 fragData2;
@@ -36,7 +36,7 @@ void main()
 
     // MRT output
     VERSE_SCRIPT_FUNC(1);
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
     fragData0/*NormalBuffer*/ = vec4(eyeNormal2.xyz, metalRough.r);
     fragData1/*DiffuseMetallicBuffer*/ = vec4(diffuse.rgb, metalRough.b);
     fragData2/*SpecularRoughnessBuffer*/ = vec4(specular, metalRough.g);

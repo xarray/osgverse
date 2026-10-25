@@ -607,6 +607,53 @@ Rules of thumb:
   rebuild *and* `install` the mode's build tree, otherwise `build/sdk_<mode>` keeps the
   stale binaries and the old behaviour.
 
+### Compatibility Profile on Modern Drivers (Moore Threads M1000)
+
+- A compatibility context can report GL 4.6 / GLSL 4.60, so `Pipeline` keeps its modern
+  target version and `ShaderLibrary` emits `#version 460 compatibility`. Some drivers then
+  reject MRT writes through `gl_FragData` even though `GL_MAX_DRAW_BUFFERS` is 8: the M1000
+  reports `Active array size for gl_FragData is 2, greater than number of draw buffers
+  supported: 1` (the same shader compiles at `#version 330 compatibility` *and* in core).
+  Do not "fix" this by lowering the version blindly — use explicit fragment outputs.
+- MRT shaders write `layout(location = N) VERSE_FS_OUT ...` whenever `VERSE_GLES3`
+  (GL3/GLES3 builds) or `VERSE_FS_MRT` (compatibility builds with GLSL >= 330, defined in
+  `ShaderLibrary::createShaderDefinitions`) is set, and fall back to `gl_FragData` only on
+  older contexts. The same `#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)` guard is used
+  in `standard_pipeline.json`, `standard_pipeline_wasm.json` and the `.glsl` modules.
+- Reproduce a compiler verdict without the engine before blaming osgVerse: create a 4.6
+  compatibility context (`GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB`) and compile a tiny
+  fragment shader writing `gl_FragData[0..3]`. The M1000 compiler also prints
+  `Maybe unsupported #version profile: compatibility`, but that line is only a warning.
+
+### SIGSEGV at Exit (`_dl_fini` / Driver Teardown)
+
+- A crash after the last frame whose stack ends in `_dl_fini` -> `mtgpu_dri.so` ->
+  `dlclose("libdrm.so.2")` -> `unlink_chunk`/`malloc_consolidate` is **not** a GL bug of the
+  pipeline: the `main` arena is already corrupt when the driver's destructor runs. Here the
+  origin is OSG's static destruction order: `s_extensions`, `s_glExtensionSetList`,
+  `s_glRendererList` and `s_glInitializedList` in `src/osg/GLExtensions.cpp` are
+  function-scope statics, while the `ContextData` map (and the `VertexArrayState`s it
+  keeps) can release the last `GLExtensions` reference later. `~GLExtensions()` then resets
+  buffers that were already destroyed and corrupts the heap. The bloom / eye-adaptation
+  chain makes it visible because it registers many more geometries (and their per-context
+  `VertexArrayState`s), so the last reference survives until static destruction.
+- `Setup.sh` patches those four statics to intentionally leak their single instance, which
+  removes the dependency on the destruction order (a few kB leaked once at exit). See the
+  "Automatically patching source code" block and the comment in the patched OSG source.
+  The patch is applied only when Setup.sh rebuilds OSG: after updating an existing tree,
+  answer `n` to "Would you like to use current OSG built" once so the patched libosg is
+  compiled and installed.
+- Diagnosis that actually works: `MALLOC_CHECK_=3` (or
+  `GLIBC_TUNABLES=glibc.malloc.check=3:glibc.malloc.tcache_count=0`) reports
+  `corrupted double-linked list`; under `gdb` the same chunk address appears on every run
+  with `set disable-randomization on`. Break on `exit` and call `malloc_trim(0)` (after a
+  malloc/free loop that drains the tcache bins) to prove the heap is still sane *before*
+  the exit handlers: if it is, the corruption happens in destructors, not while rendering.
+- `osgviewer` from the same SDK may abort earlier for an unrelated reason
+  (`std::string` constructed from a null extension name in
+  `osg::isGLExtensionOrVersionSupported`); validate the driver with the osgVerse tests
+  (`osgVerse_Test_Pipeline`, `osgVerse_Test_Many_Lights`) instead of plain `osgviewer`.
+
 ### Serialization Wrappers (wrappers/)
 Custom osgVerse classes are serialized through `osgDB::ObjectWrapper`
 serializers. Each wrapper is a cpp file in `wrappers/` that builds an

@@ -22,7 +22,7 @@ uniform int LightClusterEnabled;           // 1: loop over the lights of the cur
 #endif
 VERSE_FS_IN vec4 texCoord0;
 
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
 layout(location = 0) VERSE_FS_OUT vec4 fragData0;
 layout(location = 1) VERSE_FS_OUT vec4 fragData1;
 #endif
@@ -146,7 +146,7 @@ void main()
     // camera, so 0 is written here
     if (depthValue >= 1.0)
     {
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
         fragData0/*ColorBuffer*/ = vec4(0.0, 0.0, 0.0, 1.0);
         fragData1/*IblAmbientBuffer*/ = vec4(0.0, 0.0, 0.0, 1.0);
 #else
@@ -237,7 +237,7 @@ void main()
     if (ambientLum != ambientLum) ambient = vec3(0.0);
     else ambient = min(ambient, vec3(MAX_AMBIENT_RADIANCE));
 
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
     fragData0/*ColorBuffer*/ = vec4(radianceOut, 1.0);
     fragData1/*IblAmbientBuffer*/ = vec4(ambient, 1.0);
 #else

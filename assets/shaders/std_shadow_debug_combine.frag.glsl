@@ -15,7 +15,7 @@ uniform vec4 ShadowESMExponents;
 uniform vec2 ShadowEVSMExponents;
 VERSE_FS_IN vec4 texCoord0;
 
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
 layout(location = 0) VERSE_FS_OUT vec4 fragData;
 layout(location = 1) VERSE_FS_OUT vec4 dbgDepth;
 #endif
@@ -116,7 +116,7 @@ void main()
     vec4 emission = VERSE_TEX2D(EmissionBuffer, uv0);
     colorData.rgb += emission.rgb * emission.a;
 
-#ifdef VERSE_GLES3
+#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)
     fragData/*ColorBuffer*/ = colorData;
     dbgDepth/*DebugDepthBuffer*/ = vec4(debugValue, 1.0);
 #else

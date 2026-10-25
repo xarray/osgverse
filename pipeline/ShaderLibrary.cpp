@@ -262,6 +262,15 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
         if (glslVer < 300) ss << "#version " << glslVer << std::endl;
         else ss << "#version " << glslVer << " compatibility" << std::endl;
     }
+
+    // Multiple render targets: explicit `layout(location = N) out` variables are available from
+    // GLSL 330 on and are the only reliable form on drivers whose compatibility-profile compiler
+    // rejects gl_FragData beyond index 0 when the shader asks for a high #version (the Moore
+    // Threads M1000 reports "Active array size for gl_FragData is 2, greater than number of draw
+    // buffers supported: 1" for `#version 460 compatibility`). Older compatibility contexts keep
+    // the legacy gl_FragData path, and the GL3/GLES3 builds get the same explicit outputs through
+    // VERSE_GLES3. Shaders test both macros: `#if defined(VERSE_GLES3) || defined(VERSE_FS_MRT)`
+    if (glslVer >= 330) ss << "#define VERSE_FS_MRT 1" << std::endl;
 #endif
 
     for (size_t i = 0; i < extLines.size(); ++i) ss << extLines[i] << std::endl;
